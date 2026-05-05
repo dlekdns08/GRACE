@@ -1,0 +1,67 @@
+[project]
+name = "grace"
+version = "0.1.0"
+description = "LLM-Overcooked Meta-Policy: learning when to call the LLM planner"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+authors = [{ name = "idaun" }]
+
+dependencies = [
+    "numpy>=1.26,<2.0",
+    "torch>=2.2",
+    "gymnasium>=0.29",
+    "pydantic>=2.6",
+    "hydra-core>=1.3",
+    "omegaconf>=2.3",
+    "wandb>=0.16",
+    "pandas>=2.2",
+    "pyarrow>=15.0",
+    "openai>=1.30",
+    "tqdm>=4.66",
+    "tensorboard>=2.16",
+    "matplotlib>=3.8",
+    "scipy>=1.12",
+]
+
+[project.optional-dependencies]
+overcooked = [
+    "overcooked-ai @ git+https://github.com/HumanCompatibleAI/overcooked_ai.git",
+]
+unity = [
+    "mlagents-envs>=1.0",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "pre-commit>=3.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM"]
+ignore = ["E501", "N812"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --tb=short"
+filterwarnings = ["ignore::DeprecationWarning"]
