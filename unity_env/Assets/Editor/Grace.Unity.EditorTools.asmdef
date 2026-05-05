@@ -1,7 +1,14 @@
 {
   "name": "Grace.Unity.EditorTools",
   "rootNamespace": "Grace.Unity.EditorTools",
-  "references": [],
+  "references": [
+    "Grace.Unity.Core",
+    "Grace.Unity.Network",
+    "Grace.Unity.Render",
+    "Grace.Unity.Input",
+    "Grace.Unity.UI",
+    "Unity.Netcode.Runtime"
+  ],
   "includePlatforms": [
     "Editor"
   ],
