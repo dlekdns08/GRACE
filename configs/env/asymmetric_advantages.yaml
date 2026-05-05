@@ -1,0 +1,8 @@
+name: asymmetric_advantages
+backend: python
+layout: asymmetric_advantages
+horizon: 400
+obs_dim: 96
+action_dim: 6
+agent_ids: ["agent_0", "agent_1"]
+shared_reward: true

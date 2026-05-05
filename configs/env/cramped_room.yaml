@@ -1,0 +1,8 @@
+name: cramped_room
+backend: python              # python | unity | dummy
+layout: cramped_room
+horizon: 400                 # max episode steps
+obs_dim: 96                  # raw observation dim per agent (overcooked-ai feature_fn dim)
+action_dim: 6                # noop, up, down, left, right, interact
+agent_ids: ["agent_0", "agent_1"]
+shared_reward: true

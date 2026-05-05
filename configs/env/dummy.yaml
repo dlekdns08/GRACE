@@ -1,0 +1,7 @@
+name: dummy
+backend: dummy
+horizon: 50
+obs_dim: 8
+action_dim: 6
+agent_ids: ["agent_0", "agent_1"]
+shared_reward: true
