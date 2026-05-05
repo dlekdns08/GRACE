@@ -36,15 +36,63 @@ namespace GRACE.Unity
         public Item HeldItem = Item.None;
 
         // Action ids: 0 noop, 1 up, 2 down, 3 left, 4 right, 5 pickup/drop, 6 interact
-        private const int ActNoop = 0;
-        private const int ActUp = 1;
-        private const int ActDown = 2;
-        private const int ActLeft = 3;
-        private const int ActRight = 4;
-        private const int ActPickupDrop = 5;
-        private const int ActInteract = 6;
+        public const int ActNoop = 0;
+        public const int ActUp = 1;
+        public const int ActDown = 2;
+        public const int ActLeft = 3;
+        public const int ActRight = 4;
+        public const int ActPickupDrop = 5;
+        public const int ActInteract = 6;
+
+        /// <summary>Discrete action-space size. Mirrors Python action space.</summary>
+        public const int NumActions = 7;
 
         private const float StepPenalty = -0.01f;
+
+        /// <summary>The most recently applied discrete action id (or -1 if none).</summary>
+        public int LastAction { get; private set; } = -1;
+
+        /// <summary>Human-readable name of the currently held item.</summary>
+        public string HeldItemName
+        {
+            get
+            {
+                switch (HeldItem)
+                {
+                    case Item.Onion: return "onion";
+                    case Item.Dish: return "dish";
+                    case Item.Soup: return "soup";
+                    case Item.None:
+                    default: return "nothing";
+                }
+            }
+        }
+
+        /// <summary>
+        /// Number of float observations <see cref="CollectObservations"/>
+        /// emits given the current kitchen wiring. Useful for HUD / recorder
+        /// metadata; ML-Agents itself doesn't need this.
+        /// </summary>
+        public int GetCurrentObservationDim()
+        {
+            // self position (3) + held item (1) = 4
+            int dim = 4;
+            if (kitchen != null)
+            {
+                // other agents: position (3) + held item (1) per other.
+                int others = Mathf.Max(0, kitchen.Agents.Count - 1);
+                dim += others * 4;
+                // pots: 3 floats each.
+                dim += kitchen.Pots.Count * 3;
+                // normalised step.
+                dim += 1;
+            }
+            else
+            {
+                dim += 1; // matches the 0f fallback emitted in CollectObservations.
+            }
+            return dim;
+        }
 
         public override void OnEpisodeBegin()
         {
@@ -101,6 +149,25 @@ namespace GRACE.Unity
         public override void OnActionReceived(ActionBuffers actions)
         {
             int a = actions.DiscreteActions[0];
+            ApplyAction(a);
+        }
+
+        /// <summary>
+        /// Apply a single discrete action to the agent and the kitchen world.
+        /// Extracted from <see cref="OnActionReceived"/> so non-ML-Agents
+        /// drivers (e.g. <c>HumanPlayDriver</c>) can reuse the same logic
+        /// without going through <see cref="ActionBuffers"/>.
+        /// </summary>
+        /// <remarks>
+        /// Side effects mirror <see cref="OnActionReceived"/> exactly:
+        /// movement / pickup / interact, step penalty, queued reward
+        /// consumption, kitchen tick (only when this is agent 0), and an
+        /// <see cref="Agent.EndEpisode"/> call when the kitchen reports done.
+        /// </remarks>
+        public void ApplyAction(int discreteAction)
+        {
+            int a = discreteAction;
+            LastAction = a;
 
             int nx = GridX;
             int ny = GridY;
