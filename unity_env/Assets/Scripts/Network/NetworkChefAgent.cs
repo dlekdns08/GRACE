@@ -32,7 +32,7 @@ namespace Grace.Unity.Network
         public void SubmitAction(int action)
         {
             if (!IsOwner) return;
-            if (Kitchen == null) Kitchen = FindObjectOfType<NetworkKitchen>();
+            if (Kitchen == null) Kitchen = FindFirstObjectByType<NetworkKitchen>();
             if (Kitchen == null) return;
             Kitchen.SubmitIntentServerRpc(PlayerIndex, action);
         }
