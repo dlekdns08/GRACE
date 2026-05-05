@@ -50,6 +50,62 @@ matching side channel with the **same GUID** and decode the UTF-8 string
 payloads. Bumping `StateSerializer.FormatVersion` is a breaking change and
 must be mirrored on the Python side.
 
+## Human-Play Mode (Phase 9)
+
+For two-player local co-op (no ML-Agents Python runtime required), the
+scaffold ships four extra C# scripts:
+
+| Script | Role |
+|---|---|
+| `PlayerInput.cs` | Maps keyboard scheme (WASD or arrows) to the 7-discrete-action space. |
+| `HumanPlayDriver.cs` | Fixed-rate tick loop (default 8 Hz) that calls `ChefAgent.ApplyAction` directly, bypassing the ML-Agents Academy. |
+| `KitchenHUD.cs` | TextMeshPro HUD: step / score / soups served / per-agent held item / pot status. |
+| `TrajectoryRecorder.cs` | Append-only JSONL writer (one line per agent per tick) for behaviour-cloning datasets. |
+
+### Quick start
+
+1. Build the scene `Assets/Scenes/CrampedRoom_Play.unity` by following
+   `Assets/Scenes/CrampedRoom_Play.unity.MANUAL.md` (~15 min).
+2. Press **Play**.
+   - Player 1: `W` `A` `S` `D` + `Space` (pickup/drop) + `E` (interact).
+   - Player 2: arrow keys + `Right Shift` (pickup/drop) + `Right Ctrl` (interact).
+3. Episodes end on `MaxSteps=400` or 5 soups served (whichever first); the
+   driver auto-resets and the JSONL recorder bumps `episode` to keep
+   appending.
+
+### Recording demonstrations
+
+`TrajectoryRecorder` writes one JSONL line per (agent, tick) to
+`Assets/_demos/play_session.jsonl` by default. Schema:
+
+```json
+{"episode": 0, "step": 12, "agent_id": "agent_0", "action": 4, "reward": 0.000, "done": false, "state_text": "Step: 12/400\\nScore: 0 (soups served: 0)\\n..."}
+```
+
+To convert to parquet for downstream BC training, the Python half of
+the project (Phase 9) provides `scripts/jsonl_to_parquet.py`. As a
+one-liner you can also do:
+
+```python
+import pandas as pd
+pd.read_json("Assets/_demos/play_session.jsonl", lines=True).to_parquet("demos.parquet")
+```
+
+### Mode switching
+
+`HumanPlayDriver.humanMode = false` makes the driver a no-op; the scene
+falls back to standard ML-Agents behaviour (Academy steps each
+`ChefAgent` via `OnActionReceived`). Both code paths now route through
+the same `ChefAgent.ApplyAction(int)` so simulator behaviour is
+identical between human play and trained-policy play.
+
+### Play-vs-trained-policy
+
+Out of scope for this phase — see the **TODO** section at the bottom of
+`CrampedRoom_Play.unity.MANUAL.md` for the rough recipe (export `.onnx`,
+swap one agent's `BehaviorType` to `InferenceOnly`, drop it from
+`HumanPlayDriver.players`).
+
 ## Notes / caveats
 
 - These scripts are a *scaffold*. They compile against the standard
