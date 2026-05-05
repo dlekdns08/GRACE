@@ -16,11 +16,22 @@ from typing import Any
 
 import pandas as pd
 
+from src.envs import OvercookedEnv
 from src.eval.runner import run_eval
 from src.llm.client import LLMClient
 from src.policies.base import MetaPolicy, Policy
 
 _log = logging.getLogger(__name__)
+
+
+_TRANSFER_COLUMNS: list[str] = [
+    "train_layout",
+    "test_layout",
+    "mean_return",
+    "mean_soup_count",
+    "mean_llm_calls",
+    "n_episodes",
+]
 
 
 def _try_load_checkpoint(policy: Policy, checkpoint_path: str | Path) -> bool:
@@ -41,14 +52,27 @@ def _try_load_checkpoint(policy: Policy, checkpoint_path: str | Path) -> bool:
         except Exception as exc:
             _log.error("Failed to load checkpoint %s: %s", path, exc)
             return False
+    # Accept either a bare state_dict or our metadata-wrapped dict
+    # (matching the format saved by ``scripts/train.py``).
+    if isinstance(state, dict) and "policy_state_dict" in state:
+        state_dict = state["policy_state_dict"]
+    else:
+        state_dict = state
     if hasattr(policy, "load_state_dict"):
         try:
-            policy.load_state_dict(state)
+            policy.load_state_dict(state_dict, strict=False)
             return True
         except Exception as exc:
             _log.error("load_state_dict failed for %s: %s", path, exc)
             return False
     return False
+
+
+def _default_env_factory(layout: str) -> OvercookedEnv:
+    """Default env factory: build a Carroll-Overcooked env for ``layout``."""
+    from src.envs.python_env import PythonOvercookedEnv
+
+    return PythonOvercookedEnv(layout=layout)
 
 
 def evaluate_transfer(
@@ -59,6 +83,7 @@ def evaluate_transfer(
     meta_policy: MetaPolicy,
     llm_client: LLMClient,
     n_episodes: int = 10,
+    env_factory: Callable[[str], OvercookedEnv] | None = None,
 ) -> pd.DataFrame:
     """Evaluate a checkpoint zero-shot on each of ``test_layouts``.
 
@@ -67,32 +92,16 @@ def evaluate_transfer(
     mean_llm_calls`` plus ``n_episodes`` for traceability. Layouts whose
     environment cannot be constructed (e.g. ``overcooked_ai_py`` missing)
     are silently skipped after an error log.
+
+    ``env_factory`` lets callers (and tests) plug in custom env
+    construction. The default uses :class:`PythonOvercookedEnv`.
     """
     rows: list[dict[str, Any]] = []
-
-    try:
-        from src.envs.python_env import PythonOvercookedEnv  # noqa: F401
-    except Exception as exc:  # pragma: no cover - depends on environment
-        _log.error(
-            "PythonOvercookedEnv unavailable (%s); skipping transfer evaluation.", exc
-        )
-        return pd.DataFrame(
-            columns=[
-                "train_layout",
-                "test_layout",
-                "mean_return",
-                "mean_soup_count",
-                "mean_llm_calls",
-                "n_episodes",
-            ]
-        )
-
-    # Re-import inside the loop to keep mypy happy and to scope env imports.
-    from src.envs.python_env import PythonOvercookedEnv
+    factory = env_factory if env_factory is not None else _default_env_factory
 
     for layout in test_layouts:
         try:
-            env = PythonOvercookedEnv(layout=layout)
+            env = factory(layout)
         except Exception as exc:
             _log.error("Failed to build env for layout %r: %s", layout, exc)
             continue
@@ -127,14 +136,4 @@ def evaluate_transfer(
             }
         )
 
-    return pd.DataFrame(
-        rows,
-        columns=[
-            "train_layout",
-            "test_layout",
-            "mean_return",
-            "mean_soup_count",
-            "mean_llm_calls",
-            "n_episodes",
-        ],
-    )
+    return pd.DataFrame(rows, columns=_TRANSFER_COLUMNS)
