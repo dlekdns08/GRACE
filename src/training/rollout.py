@@ -298,8 +298,10 @@ def collect_rollout(
                     req = build_request(ctx.obs.text, agent_ids)
                     response = llm_client.call(req)
                     parsed = parse_subgoal(response.text)
-                    if parsed is not None:
-                        current_subgoal = parsed
+                    cleaned, n_invalid = _validate_subgoal_dict(parsed, agent_ids)
+                    n_invalid_subgoals += n_invalid
+                    if cleaned is not None:
+                        current_subgoal = cleaned
                     steps_since_call = 0
                     n_llm_calls += 1
                     episode_llm_calls += 1
@@ -405,5 +407,6 @@ def collect_rollout(
         soup_counts=soup_counts,
         n_llm_calls=n_llm_calls,
         n_cached_calls=n_cached_calls,
+        n_invalid_subgoals=n_invalid_subgoals,
         extras={"wallclock_sec": time.perf_counter()},
     )
