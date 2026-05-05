@@ -1,0 +1,16 @@
+{
+    "name": "Grace.Unity.Recording",
+    "rootNamespace": "Grace.Unity.Recording",
+    "references": [
+        "Grace.Unity.Core",
+        "Grace.Unity.ML"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": []
+}

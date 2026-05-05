@@ -1,5 +1,6 @@
 // TrajectoryRecorder.cs
-// Phase 9 (Unity human-play) for GRACE.
+// Phase G1: moved to Grace.Unity.Recording. Action range comment updated to
+// 0..5 (Carroll's 6-action enum). Schema otherwise unchanged.
 //
 // Records (state_text, agent_id, action, reward, done) per step into a
 // JSON Lines file. The Python side converts JSONL -> parquet downstream
@@ -11,9 +12,10 @@
 using System.Globalization;
 using System.IO;
 using System.Text;
+using Grace.Unity.ML;
 using UnityEngine;
 
-namespace GRACE.Unity
+namespace Grace.Unity.Recording
 {
     /// <summary>
     /// Append-only JSONL recorder for human-play sessions. One line per
@@ -25,7 +27,7 @@ namespace GRACE.Unity
     ///   "episode": int,
     ///   "step":    int,                // kitchen.Step at record time
     ///   "agent_id": "agent_{idx}",
-    ///   "action":   int,               // 0..6
+    ///   "action":   int,               // 0..5 (Carroll: STAY,N,S,E,W,INTERACT)
     ///   "reward":   float,
     ///   "done":     bool,
     ///   "state_text": string           // v1 SerializeKitchen output, escaped
