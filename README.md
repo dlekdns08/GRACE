@@ -1,6 +1,6 @@
 # GRACE
 
-**G**eneralized **R**outing **A**gent for **C**ooperative **E**nvironments.
+GRPO-based Reasoning Assistance Calling Efficiently
 
 LLM Meta-Policy for Overcooked: learning *when* to call the LLM high-level planner so that overall LLM calls are reduced without losing task performance.
 
