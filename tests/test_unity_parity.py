@@ -288,3 +288,20 @@ def test_replay_skipped_when_overcooked_unavailable(monkeypatch: pytest.MonkeyPa
     traj = _make_traj(["x", "y"], actions_per_step=0)
     result = replay_through_carroll(traj, layout="cramped_room")
     assert result == []
+
+
+def test_action_remap_json_matches_carroll_constants() -> None:
+    """The shared action-remap JSON, the Python constant, and the Unity-side
+    constants (mirrored in src/envs/action_remap.py) must agree."""
+    from src.envs.action_remap import grace_to_carroll, carroll_to_grace, load_remap
+
+    remap = load_remap()
+    assert remap["names"] == ["STAY", "N", "S", "E", "W", "INTERACT"]
+
+    # GRACE→Carroll matches the dict that downstream code uses.
+    for grace_id, carroll_id in GRACE_TO_CARROLL.items():
+        assert grace_to_carroll(grace_id) == carroll_id
+
+    # And the inverse is a true inverse.
+    for grace_id in range(6):
+        assert carroll_to_grace(grace_to_carroll(grace_id)) == grace_id
