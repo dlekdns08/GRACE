@@ -90,7 +90,36 @@ class RolloutBatch:
     soup_counts: list[int]
     n_llm_calls: int
     n_cached_calls: int
+    n_invalid_subgoals: int = 0
     extras: dict[str, Any] = field(default_factory=dict)
+
+
+def _validate_subgoal_dict(
+    parsed: dict[str, str] | None,
+    agent_ids: list[str],
+) -> tuple[dict[str, str] | None, int]:
+    """Drop subgoals that are not in :data:`SUBGOAL_TO_IDX`.
+
+    Returns ``(cleaned, n_invalid)`` where ``cleaned`` keeps only the agents
+    whose value is a known subgoal name. If ``parsed`` is None or every entry
+    is invalid we return ``(None, n_invalid)`` so callers can fall back to the
+    "no subgoal" branch.
+    """
+    if parsed is None:
+        return None, 0
+    n_invalid = 0
+    cleaned: dict[str, str] = {}
+    for aid in agent_ids:
+        val = parsed.get(aid)
+        if val is None:
+            continue
+        if val in SUBGOAL_TO_IDX:
+            cleaned[aid] = val
+        else:
+            n_invalid += 1
+    if not cleaned:
+        return None, n_invalid
+    return cleaned, n_invalid
 
 
 # ----------------------------------------------------------------------------- helpers
@@ -204,6 +233,7 @@ def collect_rollout(
 
     n_llm_calls = 0
     n_cached_calls = 0
+    n_invalid_subgoals = 0
 
     obs: EnvObservation = env.reset()
     current_subgoal: dict[str, str] | None = None
