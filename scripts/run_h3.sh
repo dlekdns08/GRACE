@@ -24,7 +24,7 @@ PYTHONPATH="$REPO_ROOT" python scripts/sweep.py --run \
     --retry-failed \
     llm=qwen3.6_35b,qwen3_thinking,qwen3_8b \
     meta=learned \
-    seed="$SEEDS" \
+    experiment.seed="$SEEDS" \
     env="$ENV" \
     policy=llm_augmented \
     experiment.total_steps="$STEPS"
