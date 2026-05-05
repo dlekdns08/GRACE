@@ -1,0 +1,5 @@
+name: qwen3.6_35b
+_target_: src.llm.client.LMStudioClient
+base_url: http://localhost:1234/v1
+model: qwen3.6-35b-a3b
+timeout: 30.0

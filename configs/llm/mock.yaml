@@ -1,0 +1,7 @@
+name: mock
+_target_: src.llm.mock.MockLLMClient
+responses:
+  - '{"agent_0": "go_to_onion", "agent_1": "go_to_onion"}'
+  - '{"agent_0": "deliver_onion_to_pot", "agent_1": "pickup_dish"}'
+  - '{"agent_0": "wait_for_cook", "agent_1": "wait_for_cook"}'
+  - '{"agent_0": "pickup_soup", "agent_1": "deliver_soup"}'

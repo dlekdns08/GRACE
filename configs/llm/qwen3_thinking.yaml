@@ -1,0 +1,5 @@
+name: qwen3_thinking
+_target_: src.llm.client.LMStudioClient
+base_url: http://localhost:1234/v1
+model: qwen3-32b-thinking
+timeout: 60.0

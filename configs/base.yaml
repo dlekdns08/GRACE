@@ -1,0 +1,29 @@
+# Base experiment config. Specific experiments are composed via Hydra group overrides.
+
+defaults:
+  - env: cramped_room
+  - policy: ppo
+  - meta: fixed_k100
+  - llm: mock
+  - _self_
+
+experiment:
+  name: ${meta.name}_${env.name}_${policy.name}
+  seed: 0
+  total_steps: 1_000_000
+  rollout_steps: 2048      # steps collected per training iteration
+  eval_every: 100_000
+  log_dir: ./runs
+
+logging:
+  wandb_project: grace
+  wandb_mode: disabled     # online | offline | disabled
+  wandb_entity: null
+
+device: auto               # auto | cpu | cuda | mps
+
+hydra:
+  run:
+    dir: ${experiment.log_dir}/${experiment.name}_seed${experiment.seed}_${now:%Y%m%d-%H%M%S}
+  job:
+    chdir: false
