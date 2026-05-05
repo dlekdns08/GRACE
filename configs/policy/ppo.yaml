@@ -1,0 +1,20 @@
+name: ppo
+_target_: src.policies.ppo.PPOPolicy
+
+hidden_dim: 128
+n_layers: 2
+activation: tanh
+
+learning_rate: 3e-4
+gamma: 0.99
+gae_lambda: 0.95
+clip_range: 0.2
+value_coef: 0.5
+entropy_coef: 0.01
+n_epochs: 4
+minibatch_size: 256
+max_grad_norm: 0.5
+
+# subgoal conditioning (off by default for plain PPO)
+use_subgoal: false
+subgoal_dim: 0

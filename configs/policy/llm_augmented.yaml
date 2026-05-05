@@ -1,0 +1,19 @@
+name: llm_augmented
+_target_: src.policies.llm_augmented.LLMAugmentedPPOPolicy
+
+hidden_dim: 128
+n_layers: 2
+activation: tanh
+
+learning_rate: 3e-4
+gamma: 0.99
+gae_lambda: 0.95
+clip_range: 0.2
+value_coef: 0.5
+entropy_coef: 0.01
+n_epochs: 4
+minibatch_size: 256
+max_grad_norm: 0.5
+
+use_subgoal: true
+subgoal_dim: 8           # one-hot of 8 subgoal classes (matches src.llm.prompts enum)
