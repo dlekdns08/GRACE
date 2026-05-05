@@ -31,7 +31,7 @@ A real, playable 3D cooperative cooking game (Overcooked-clone) that:
 
 - Existing `ChefAgent.cs` uses 7 actions (with separate pickup/drop). **Phase G1 will collapse this to 6** by merging pickup/drop into `INTERACT` — Carroll behavior. This is breaking — Phase 9 demos collected with the 7-action scheme will be invalidated. Mitigated by clean re-record after G1.
 - Online multiplayer in WebGL is non-trivial: NGO uses Unity Transport (UTP) which supports WebRTC for WebGL via Unity Relay. **No separate relay server required.**
-- ML-Agents and NGO can coexist in the same project; they're orthogonal layers. ML-Agents stays as the training path; NGO is for human-vs-human play.
+- **ML-Agents disabled in Unity 6** (Editor 6000.4.5f1). ML-Agents 3.0 still references the old `Unity.Sentis` namespace, but Unity 6 ships only the new `Unity.InferenceEngine` shim (Sentis → InferenceEngine rename). To keep the game compiling, the `com.unity.ml-agents` package is **removed from `Packages/manifest.json`** and the `Grace.Unity.ML` + `Grace.Unity.Recording` asmdefs are gated behind `GRACE_HAS_MLAGENTS` via `versionDefines` — they auto-activate if the package returns. RL training continues on the Python side (Carroll's overcooked-ai) — Unity is the **game/visualization layer only** until ML-Agents adds Unity 6 support. To re-enable: downgrade to Unity 2023.2 LTS or wait for ML-Agents to publish a Unity 6-compatible release.
 
 ## 3. Scope (what's in / out)
 
