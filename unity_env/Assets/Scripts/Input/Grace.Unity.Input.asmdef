@@ -4,6 +4,7 @@
   "references": [
     "Grace.Unity.Core",
     "Grace.Unity.Network",
+    "Unity.Netcode.Runtime",
     "Unity.InputSystem"
   ],
   "includePlatforms": [],
