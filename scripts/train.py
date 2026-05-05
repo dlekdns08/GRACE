@@ -169,18 +169,52 @@ def main(cfg: DictConfig) -> None:
         logger.log_scalar(
             "rollout/cached_calls", float(batch.n_cached_calls), step=total_steps
         )
+        logger.log_scalar(
+            "rollout/invalid_subgoals",
+            float(getattr(batch, "n_invalid_subgoals", 0)),
+            step=total_steps,
+        )
 
         _log.info(
-            "iter=%d total_steps=%d episodes=%d llm_calls=%d policy_loss=%.4f",
+            "iter=%d total_steps=%d episodes=%d llm_calls=%d invalid_subgoals=%d policy_loss=%.4f",
             iteration,
             total_steps,
             len(batch.episode_returns),
             batch.n_llm_calls,
+            int(getattr(batch, "n_invalid_subgoals", 0)),
             metrics["policy_loss"],
         )
 
+        # Periodic mid-training checkpoint.
+        if eval_every > 0 and total_steps - last_ckpt_step >= eval_every:
+            mid_ckpt = run_dir / f"policy_step{total_steps}.pt"
+            _save_checkpoint(mid_ckpt)
+            _log.info("saved mid-training checkpoint: %s", mid_ckpt)
+            last_ckpt_step = total_steps
+
     paths = logger.flush()
     _log.info("Wrote logs: %s", {k: str(v) for k, v in paths.items()})
+
+    # Final checkpoint.
+    ckpt_path = run_dir / "policy.pt"
+    _save_checkpoint(ckpt_path)
+    _log.info("saved policy checkpoint: %s", ckpt_path)
+
+    # Quick post-training eval so the run is self-contained.
+    try:
+        eval_df = run_eval(
+            env=env,
+            policy=policy,
+            meta_policy=meta_policy,
+            llm_client=llm_client,
+            n_episodes=10,
+            max_steps_per_episode=int(cfg.env.horizon),
+        )
+        eval_df.to_parquet(run_dir / "eval_results.parquet", index=False)
+        summary = aggregate_episodes(eval_df)
+        _log.info("eval summary: %s", summary)
+    except Exception as exc:  # pragma: no cover - non-fatal
+        _log.warning("post-training eval failed: %s", exc)
 
     if wandb_run is not None:
         wandb_run.finish()
