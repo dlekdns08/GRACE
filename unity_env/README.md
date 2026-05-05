@@ -1,11 +1,76 @@
-# `unity_env/` — Unity ML-Agents scaffold (GRACE Phase 6)
+# `unity_env/` — GRACE Unity project (3D Overcooked-clone)
 
-This directory holds a **stub Unity project** for the Overcooked-style
-environment described in `DESIGN.md` section 4.1. It is intentionally minimal:
-the C# scripts compile against a standard ML-Agents install but do not yet
-ship art, prefabs, scenes, or training configs. Future phases will flesh those
-out. The Python side wrapper that talks to this build will live at
-`src/envs/unity_env.py` (added in a later phase).
+This directory hosts the **playable 3D Overcooked-style game** described in
+`unity_env/GAME_DESIGN.md`. Phase G1 (this commit) introduces a pure-C# core
+simulation under `Assets/Scripts/Core/` that is the single source of truth
+for game state; the existing ML-Agents code, the upcoming render layer, and
+the Network/NGO multiplayer layer all consume it identically.
+
+For research-side parity with Carroll's Overcooked-AI, see `DESIGN.md`
+sections 3.1 and 4.1.
+
+## Game architecture (Phase G1+)
+
+```
+Assets/Scripts/
+├── Core/                ← pure C#, no UnityEngine deps; deterministic
+│   ├── KitchenLayout.cs       ← parsed grid (TileKind, GridPos)
+│   ├── LayoutLoader.cs        ← Carroll ASCII parser
+│   ├── PotState.cs            ← pot state machine (3 onions, 20-tick cook)
+│   └── ChefSimulation.cs      ← Carroll-faithful simulation core
+├── ML/                  ← ML-Agents binding (existing path, refactored)
+│   ├── ChefAgent.cs           ← Agent; delegates to ChefSimulation
+│   ├── KitchenEnvironment.cs  ← thin MB wrapper around ChefSimulation
+│   ├── PotController.cs       ← visual mirror of PotState
+│   ├── PlayerInput.cs / HumanPlayDriver.cs / KitchenHUD.cs
+│   ├── StateSerializer.cs / KitchenSideChannelHook.cs
+└── Recording/
+    └── TrajectoryRecorder.cs  ← JSONL (one line per agent per tick)
+
+Assets/Resources/Layouts/
+├── cramped_room.txt
+├── asymmetric_advantages.txt
+├── coordination_ring.txt
+└── forced_coordination.txt    ← all four are Carroll's standard layouts
+
+Tests/EditMode/
+├── LayoutLoaderTests.cs
+├── PotStateTests.cs
+└── ChefSimulationTests.cs
+```
+
+The `Core/` simulation is consumed by three independent layers:
+
+```
+                  ┌──────────────────────┐
+                  │ Core.ChefSimulation  │  pure C#, deterministic
+                  └──────────┬───────────┘
+                             │
+            ┌────────────────┼────────────────┐
+            │                │                │
+       Render/+Input      Network/        ML/ (this folder)
+       (Phase G2/G3)      (NGO host-auth) (ML-Agents Academy)
+```
+
+The action enum is **6 values** (Carroll-faithful):
+
+| id | name | meaning |
+|----|------|---------|
+| 0 | STAY | do nothing |
+| 1 | N | move north (y decreases; y=0 is top of layout) |
+| 2 | S | move south |
+| 3 | E | move east |
+| 4 | W | move west |
+| 5 | INTERACT | pick up / drop / cook / serve, depending on facing tile |
+
+See `unity_env/GAME_DESIGN.md` for full design lock-ins.
+
+## Phase 6 stub note (historical)
+
+Originally this directory was a Phase 6 stub: the C# scripts compiled against
+a standard ML-Agents install but did not ship art, prefabs, scenes, or
+training configs. Phase G1 keeps that ML-Agents path alive (now under
+`Scripts/ML/`) but rebuilt on top of the deterministic `Core/` simulation.
 
 ## Requirements
 
