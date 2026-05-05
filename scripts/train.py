@@ -11,10 +11,13 @@ import logging
 from pathlib import Path
 
 import hydra
+import torch
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
 
 from src.envs import DummyOvercookedEnv, OvercookedEnv
+from src.eval.metrics import aggregate_episodes
+from src.eval.runner import run_eval
 from src.llm import PROMPT_VERSION, CachedLLMClient
 from src.policies import MetaPolicy, PPOPolicy
 from src.training import PPOTrainer, collect_rollout
