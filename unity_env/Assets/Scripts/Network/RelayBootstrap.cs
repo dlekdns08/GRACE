@@ -4,6 +4,10 @@
 //
 // Initializes Unity Services + anonymous Authentication, then either creates
 // a Relay allocation (host) or joins one via 6-character join code (guest).
+//
+// Platform note: WebGL builds cannot speak UDP/DTLS, so we transparently
+// switch to secure WebSockets ("wss") and flip UnityTransport.UseWebSockets
+// when running in a browser. Desktop platforms continue to use DTLS.
 
 using System.Threading.Tasks;
 using Unity.Netcode;
@@ -27,6 +31,23 @@ namespace Grace.Unity.Network
         public string JoinCode { get; private set; }
         public bool IsInitialized { get; private set; }
 
+        /// <summary>
+        /// Connection type used when calling <see cref="RelayServerData"/>. WebGL
+        /// requires "wss" (browsers can't emit raw UDP); other platforms use
+        /// "dtls" for the standard Relay UDP transport.
+        /// </summary>
+        public static string ConnectionType
+        {
+            get
+            {
+#if UNITY_WEBGL && !UNITY_EDITOR
+                return "wss";
+#else
+                return "dtls";
+#endif
+            }
+        }
+
         public async Task Initialize()
         {
             if (IsInitialized) return;
@@ -43,8 +64,7 @@ namespace Grace.Unity.Network
             await Initialize();
             Allocation alloc = await RelayService.Instance.CreateAllocationAsync(MaxConnections);
             JoinCode = await RelayService.Instance.GetJoinCodeAsync(alloc.AllocationId);
-            var transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
-            transport.SetRelayServerData(new RelayServerData(alloc, "dtls"));
+            ApplyRelayData(new RelayServerData(alloc, ConnectionType));
             NetworkManager.Singleton.StartHost();
             return JoinCode;
         }
@@ -53,8 +73,7 @@ namespace Grace.Unity.Network
         {
             await Initialize();
             JoinAllocation alloc = await RelayService.Instance.JoinAllocationAsync(joinCode);
-            var transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
-            transport.SetRelayServerData(new RelayServerData(alloc, "dtls"));
+            ApplyRelayData(new RelayServerData(alloc, ConnectionType));
             NetworkManager.Singleton.StartClient();
             JoinCode = joinCode;
         }
@@ -65,6 +84,15 @@ namespace Grace.Unity.Network
             if (NetworkManager.Singleton.IsHost) NetworkManager.Singleton.Shutdown();
             else if (NetworkManager.Singleton.IsClient) NetworkManager.Singleton.Shutdown();
             JoinCode = null;
+        }
+
+        private static void ApplyRelayData(RelayServerData data)
+        {
+            var transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
+#if UNITY_WEBGL && !UNITY_EDITOR
+            transport.UseWebSockets = true;
+#endif
+            transport.SetRelayServerData(data);
         }
     }
 }

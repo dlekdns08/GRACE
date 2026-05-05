@@ -4,8 +4,9 @@
 //
 // The host owns one ChefSimulation instance and ticks it at 8 Hz.
 // Replicated state is broadcast to all clients via NetworkVariables and
-// per-chef / per-pot NetworkLists.
+// per-chef / per-pot / per-counter-item NetworkLists.
 
+using System.Collections.Generic;
 using Grace.Unity.Core;
 using Unity.Netcode;
 using UnityEngine;
@@ -25,6 +26,10 @@ namespace Grace.Unity.Network
         // Host-only
         private ChefSimulation _sim;
         private float _accumulator;
+        // Stable enumeration order for pots: enumerated once at LoadAndStart and
+        // reused every tick. Dictionary enumeration order is not contractually
+        // guaranteed across modifications, so we own the order ourselves.
+        private GridPos[] _potKeys;
 
         // Replicated state — written by host, read by all
         public NetworkVariable<int> Step = new();
@@ -32,12 +37,18 @@ namespace Grace.Unity.Network
         public NetworkVariable<int> SoupsServed = new();
         public NetworkVariable<bool> IsRunning = new();
 
-        // Per-chef state arrays — fixed size 4 for now
+        // Per-chef / per-pot / per-counter-item replicated arrays.
         public NetworkList<ChefStateNet> Chefs;
         public NetworkList<PotStateNet> Pots;
+        public NetworkList<CounterItemNet> CounterItems;
+
+        // Host-only mapping: NGO clientId → 0-based player slot. Persisted across
+        // connect/disconnect to avoid OOB on _intents when clientIds skip values.
+        private readonly Dictionary<ulong, int> _clientToSlot = new Dictionary<ulong, int>();
 
         // Per-tick input intents from each client (host-only buffer)
-        private readonly int[] _intents = new int[4];
+        private const int MaxPlayers = 4;
+        private readonly int[] _intents = new int[MaxPlayers];
 
         private void Awake()
         {
@@ -45,6 +56,7 @@ namespace Grace.Unity.Network
             // they are registered with the NetworkBehaviour replication machinery.
             Chefs ??= new NetworkList<ChefStateNet>();
             Pots ??= new NetworkList<PotStateNet>();
+            CounterItems ??= new NetworkList<CounterItemNet>();
         }
 
         public override void OnNetworkSpawn()
@@ -60,25 +72,58 @@ namespace Grace.Unity.Network
             var layout = LayoutLoader.Load(LayoutName);
             _sim = new ChefSimulation(layout);
 
-            // Initialize replicated lists
+            // Initialize replicated lists.
             Chefs.Clear();
             Pots.Clear();
+            CounterItems.Clear();
+
             for (int i = 0; i < _sim.Chefs.Count; i++)
             {
                 Chefs.Add(ChefStateNet.From(_sim.Chefs[i]));
             }
-            foreach (var kv in _sim.Pots)
+
+            // Sort pot keys deterministically so the replicated index assignment
+            // is stable across runs (and machines, for parity tests).
+            var keys = new List<GridPos>(_sim.Pots.Keys);
+            keys.Sort((a, b) =>
             {
-                Pots.Add(PotStateNet.From(kv.Key, kv.Value));
+                int dy = a.Y.CompareTo(b.Y);
+                return dy != 0 ? dy : a.X.CompareTo(b.X);
+            });
+            _potKeys = keys.ToArray();
+            for (int i = 0; i < _potKeys.Length; i++)
+            {
+                Pots.Add(PotStateNet.From(_potKeys[i], _sim.Pots[_potKeys[i]]));
             }
+
             IsRunning.Value = true;
         }
 
-        [ServerRpc(RequireOwnership = false)]
-        public void SubmitIntentServerRpc(int playerIdx, int action, ServerRpcParams rpc = default)
+        /// <summary>
+        /// Register a client → player-slot mapping. Called by NetworkPlayerSpawner
+        /// at spawn time. Slots are sticky: a client gets the same slot for the
+        /// life of this kitchen instance.
+        /// </summary>
+        public void RegisterClientSlot(ulong clientId, int slot)
         {
-            if (playerIdx < 0 || playerIdx >= _intents.Length) return;
-            _intents[playerIdx] = action;
+            if (!IsServer) return;
+            if (slot < 0 || slot >= MaxPlayers) return;
+            _clientToSlot[clientId] = slot;
+        }
+
+        public bool TryGetClientSlot(ulong clientId, out int slot) =>
+            _clientToSlot.TryGetValue(clientId, out slot);
+
+        [ServerRpc(RequireOwnership = false)]
+        public void SubmitIntentServerRpc(int action, ServerRpcParams rpc = default)
+        {
+            // Derive the player slot from the verified sender clientId so a
+            // misbehaving client cannot overwrite another player's intent.
+            ulong sender = rpc.Receive.SenderClientId;
+            if (!_clientToSlot.TryGetValue(sender, out int slot)) return;
+            if (slot < 0 || slot >= _intents.Length) return;
+            if (action < 0 || action >= ChefSimulation.NumActions) return;
+            _intents[slot] = action;
         }
 
         private void Update()
@@ -96,16 +141,22 @@ namespace Grace.Unity.Network
                 Score.Value = _sim.Score;
                 SoupsServed.Value = _sim.SoupsServed;
 
-                // Update replicated chef/pot lists
+                // Update replicated chef list.
                 for (int i = 0; i < _sim.Chefs.Count; i++)
                 {
                     Chefs[i] = ChefStateNet.From(_sim.Chefs[i]);
                 }
-                int j = 0;
-                foreach (var kv in _sim.Pots)
+                // Update replicated pot list using the cached, sorted key order.
+                for (int i = 0; i < _potKeys.Length; i++)
                 {
-                    Pots[j] = PotStateNet.From(kv.Key, kv.Value);
-                    j++;
+                    Pots[i] = PotStateNet.From(_potKeys[i], _sim.Pots[_potKeys[i]]);
+                }
+                // Update counter-item list. Counter items are sparse so we
+                // rebuild the list each tick (typical layout has < 10 items).
+                CounterItems.Clear();
+                foreach (var kv in _sim.CounterItems)
+                {
+                    CounterItems.Add(CounterItemNet.From(kv.Key, kv.Value));
                 }
 
                 if (_sim.IsDone()) IsRunning.Value = false;
@@ -181,5 +232,32 @@ namespace Grace.Unity.Network
         public override bool Equals(object obj) => obj is PotStateNet o && Equals(o);
         public override int GetHashCode() =>
             (X * 73856093) ^ (Y * 19349663) ^ (OnionsIn << 16) ^ (CookingTime << 8) ^ (IsReady ? 1 : 0);
+    }
+
+    /// <summary>
+    /// Per-counter-item replicated snapshot. One entry per occupied counter tile.
+    /// </summary>
+    public struct CounterItemNet : INetworkSerializable, System.IEquatable<CounterItemNet>
+    {
+        public int X, Y;
+        public byte Item;   // 1=Onion, 2=Dish, 3=Soup (None=0 should never replicate)
+
+        public static CounterItemNet From(GridPos p, HeldItem item) => new CounterItemNet
+        {
+            X = p.X,
+            Y = p.Y,
+            Item = (byte)item,
+        };
+
+        public void NetworkSerialize<T>(BufferSerializer<T> s) where T : IReaderWriter
+        {
+            s.SerializeValue(ref X);
+            s.SerializeValue(ref Y);
+            s.SerializeValue(ref Item);
+        }
+
+        public bool Equals(CounterItemNet o) => X == o.X && Y == o.Y && Item == o.Item;
+        public override bool Equals(object obj) => obj is CounterItemNet o && Equals(o);
+        public override int GetHashCode() => (X * 73856093) ^ (Y * 19349663) ^ Item;
     }
 }
