@@ -1,5 +1,6 @@
 """Training loop primitives — rollout collection and PPO / GRPO updates."""
 
+from src.training.bc import BCDataset, load_demos_to_dataset, train_bc
 from src.training.grpo_trainer import (
     GRPOTrainer,
     MetaDecision,
@@ -16,6 +17,7 @@ from src.training.rollout import (
 )
 
 __all__ = [
+    "BCDataset",
     "GRPOTrainer",
     "MetaDecision",
     "MetaRollout",
@@ -25,5 +27,7 @@ __all__ = [
     "Transition",
     "collect_meta_rollout",
     "collect_rollout",
+    "load_demos_to_dataset",
     "subgoal_to_onehot",
+    "train_bc",
 ]
