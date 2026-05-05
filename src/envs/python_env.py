@@ -3,6 +3,16 @@
 This module imports cleanly without ``overcooked_ai_py`` installed; the actual
 import happens inside :meth:`PythonOvercookedEnv.__init__` so that test
 collection on bare environments does not fail.
+
+Notes on observation dim
+------------------------
+We use ``OvercookedEnv.featurize_state_mdp`` (which builds a
+``MediumLevelActionManager`` lazily on first access). For the standard
+layouts (``cramped_room``, ``asymmetric_advantages``) this returns a fixed
+96-D float vector per agent — matching the value pinned in
+``configs/env/*.yaml``. The much-larger ``lossless_state_encoding`` (a
+spatial tensor) is intentionally not used here so the obs dim stays in
+sync with the rest of the codebase.
 """
 
 from __future__ import annotations
@@ -16,6 +26,65 @@ from .base import EnvObservation, EnvStep, OvercookedEnv
 _AGENT_IDS: tuple[str, str] = ("agent_0", "agent_1")
 
 
+def _carroll_state_to_text(state: Any, mdp: Any, horizon: int) -> str:
+    """Render an ``OvercookedState`` into the deterministic GRACE text format.
+
+    Mirrors :func:`src.envs.state_text._generic_state_to_text` so the same
+    prompt template / cache works for both backends.
+    """
+    # Soup orders served = total reward; we surface ``timestep`` and a
+    # rough ``score`` proxy. The truthful score lives in info["episode"]
+    # but isn't on the state itself, so we use timestep-relative info.
+    score = 0  # state itself doesn't carry score; logged in step().info
+    soups_served = 0
+
+    lines: list[str] = [
+        f"Step: {int(state.timestep)}/{int(horizon)}",
+        f"Score: {score} (soups served: {soups_served})",
+        "",
+        "Agents:",
+    ]
+
+    # Carroll's players are an ordered tuple matching ``agent_0, agent_1``.
+    for idx, player in enumerate(state.players):
+        name = _AGENT_IDS[idx] if idx < len(_AGENT_IDS) else f"agent_{idx}"
+        if player.held_object is None:
+            held = "nothing"
+        else:
+            held = str(player.held_object.name)
+        x, y = player.position
+        lines.append(f"  - {name} at ({x},{y}), holding {held}")
+
+    lines.append("")
+    lines.append("Pots:")
+    pot_locations = mdp.get_pot_locations()
+    for idx, loc in enumerate(pot_locations):
+        if state.has_object(loc):
+            soup = state.get_object(loc)
+            # Carroll's SoupState exposes _ingredients and is_cooking / is_ready.
+            try:
+                onion_count = sum(
+                    1 for ing in soup.ingredients if ing == "onion"
+                )
+            except AttributeError:
+                onion_count = len(getattr(soup, "_ingredients", []))
+            is_ready = bool(getattr(soup, "is_ready", False))
+            is_cooking = bool(getattr(soup, "is_cooking", False))
+            cook_time_left = int(getattr(soup, "cook_time_remaining", 0))
+            if is_ready:
+                lines.append(f"  - Pot {idx}: ready to serve")
+            elif is_cooking:
+                lines.append(f"  - Pot {idx}: cooking, {cook_time_left}s remaining")
+            elif onion_count == 0:
+                lines.append(f"  - Pot {idx}: empty")
+            else:
+                lines.append(f"  - Pot {idx}: {onion_count}/3 onions, not started")
+        else:
+            lines.append(f"  - Pot {idx}: empty")
+
+    return "\n".join(lines)
+
+
 class PythonOvercookedEnv(OvercookedEnv):
     """Adapt Carroll's ``OvercookedEnv`` to the GRACE :class:`OvercookedEnv` API.
 
@@ -27,13 +96,14 @@ class PythonOvercookedEnv(OvercookedEnv):
 
     def __init__(
         self,
-        layout_name: str = "cramped_room",
+        layout_name: str | None = None,
         horizon: int = 400,
-        featurize: str = "lossless",
+        featurize: str = "featurize",
+        layout: str | None = None,
     ) -> None:
         try:
-            from overcooked_ai_py.mdp.overcooked_mdp import OvercookedGridworld
             from overcooked_ai_py.mdp.overcooked_env import OvercookedEnv as CarrollEnv
+            from overcooked_ai_py.mdp.overcooked_mdp import OvercookedGridworld
         except ImportError as e:
             raise RuntimeError(
                 "overcooked_ai_py is not installed. Install with "
@@ -41,29 +111,41 @@ class PythonOvercookedEnv(OvercookedEnv):
                 "`pip install 'overcooked-ai @ git+https://github.com/HumanCompatibleAI/overcooked_ai.git'`)."
             ) from e
 
-        self._layout_name = layout_name
-        self._horizon = horizon
-        self._featurize = featurize
+        # Accept both ``layout_name=`` (existing call sites) and ``layout=``
+        # (matches the Hydra config key) for ergonomics.
+        resolved_layout = layout_name if layout_name is not None else layout
+        if resolved_layout is None:
+            resolved_layout = "cramped_room"
 
-        self._mdp = OvercookedGridworld.from_layout_name(layout_name)
-        self._env = CarrollEnv.from_mdp(self._mdp, horizon=horizon)
+        self._layout_name = str(resolved_layout)
+        self._horizon = int(horizon)
+        self._featurize = str(featurize)
+
+        self._mdp = OvercookedGridworld.from_layout_name(self._layout_name)
+        self._env = CarrollEnv.from_mdp(self._mdp, horizon=self._horizon)
+
+        from overcooked_ai_py.mdp.actions import Action
+
+        self._actions_module = Action
+        self._action_space_size = len(Action.ALL_ACTIONS)
 
         # Determine featurised observation shape by performing a dry encode.
         sample_obs = self._encode_raw_obs()
         self._obs_dim = int(sample_obs[_AGENT_IDS[0]].shape[0])
-        # Carroll's discrete action space size; Action.ALL_ACTIONS has 6 entries.
-        from overcooked_ai_py.mdp.actions import Action
-
-        self._action_space_size = len(Action.ALL_ACTIONS)
-        self._actions_module = Action
 
     # ------------------------------------------------------------------ helpers
     def _encode_raw_obs(self) -> dict[str, np.ndarray]:
+        """Encode the current state as per-agent feature vectors.
+
+        Uses ``OvercookedEnv.featurize_state_mdp`` (96-D for the standard
+        layouts) by default. The lazy MLAM construction inside Carroll's
+        env happens on the first call here.
+        """
         state = self._env.state
         if self._featurize == "lossless":
             stacked = self._mdp.lossless_state_encoding(state)
         else:
-            stacked = self._mdp.featurize_state(state, mlam=None)
+            stacked = self._env.featurize_state_mdp(state)
         per_agent: dict[str, np.ndarray] = {}
         for idx, agent_id in enumerate(_AGENT_IDS):
             arr = np.asarray(stacked[idx], dtype=np.float32).reshape(-1)
@@ -71,17 +153,13 @@ class PythonOvercookedEnv(OvercookedEnv):
         return per_agent
 
     def _build_observation(self) -> EnvObservation:
-        from .state_text import state_to_text  # local import to keep base lazy
-
         raw = self._encode_raw_obs()
         try:
-            text = state_to_text(self._env.state)
-        except NotImplementedError:
-            # Until the overcooked-ai branch is wired in, fall back to a short
-            # placeholder string. Phase 6 will replace this.
+            text = _carroll_state_to_text(self._env.state, self._mdp, self._horizon)
+        except Exception:  # pragma: no cover - defensive fallback
             text = (
                 f"Step: {self._env.state.timestep}/{self._horizon}\n"
-                f"(text representation pending overcooked_ai_py wiring)"
+                f"(text rendering unavailable)"
             )
         info: dict[str, Any] = {"timestep": int(self._env.state.timestep)}
         return EnvObservation(raw=raw, text=text, info=info)
@@ -103,7 +181,9 @@ class PythonOvercookedEnv(OvercookedEnv):
         soup_count = int(env_info.get("episode", {}).get("ep_sparse_r", 0))
         info: dict[str, Any] = {"soup_count": soup_count, "raw_env_info": env_info}
         terminated = bool(done)
-        truncated = bool(getattr(next_state, "timestep", 0) >= self._horizon and not terminated)
+        truncated = bool(
+            getattr(next_state, "timestep", 0) >= self._horizon and not terminated
+        )
         return EnvStep(
             obs=self._build_observation(),
             rewards=rewards,
