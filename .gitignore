@@ -10,7 +10,9 @@ dist/
 .eggs/
 .venv/
 venv/
-env/
+# Match a top-level virtualenv only — `configs/env/` is a Hydra config group
+# and must stay tracked.
+/env/
 ProjectSettings/
 # Tooling
 .pytest_cache/
