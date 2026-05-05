@@ -1,0 +1,18 @@
+{
+  "name": "Grace.Unity.Input",
+  "rootNamespace": "Grace.Unity.Input",
+  "references": [
+    "Grace.Unity.Core",
+    "Grace.Unity.Network",
+    "Unity.InputSystem"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
