@@ -54,14 +54,13 @@ _log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------- action mapping
-# GRACE/Unity index -> Carroll INDEX_TO_ACTION index.
+# GRACE/Unity index -> Carroll INDEX_TO_ACTION index. Loaded from the shared
+# JSON at ``unity_env/Assets/Resources/Config/action_remap.json`` so the Unity
+# side (``Grace.Unity.Core.ActionIndexMap``) and this module stay in lockstep.
+from src.envs.action_remap import load_remap as _load_action_remap
+
 GRACE_TO_CARROLL: dict[int, int] = {
-    0: 4,  # STAY
-    1: 0,  # NORTH
-    2: 1,  # SOUTH
-    3: 2,  # EAST
-    4: 3,  # WEST
-    5: 5,  # INTERACT
+    i: int(v) for i, v in enumerate(_load_action_remap()["grace_to_carroll"])
 }
 
 _AGENT_IDS: tuple[str, str] = ("agent_0", "agent_1")
