@@ -274,8 +274,10 @@ def collect_rollout(
                     pending_future = None
                     if resp is not None:
                         parsed = parse_subgoal(resp.text)
-                        if parsed is not None:
-                            current_subgoal = parsed
+                        cleaned, n_invalid = _validate_subgoal_dict(parsed, agent_ids)
+                        n_invalid_subgoals += n_invalid
+                        if cleaned is not None:
+                            current_subgoal = cleaned
                         steps_since_call = 0
                         n_llm_calls += 1
                         episode_llm_calls += 1
