@@ -1,0 +1,14 @@
+{
+  "name": "Grace.Unity.Audio",
+  "rootNamespace": "Grace.Unity.Audio",
+  "references": [],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
