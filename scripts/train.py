@@ -124,6 +124,22 @@ def main(cfg: DictConfig) -> None:
     iteration = 0
     target_steps = int(cfg.experiment.total_steps)
     rollout_steps = int(cfg.experiment.rollout_steps)
+    eval_every = int(cfg.experiment.get("eval_every", 0) or 0)
+    last_ckpt_step = 0
+
+    def _save_checkpoint(path: Path) -> None:
+        torch.save(
+            {
+                "policy_state_dict": policy.state_dict(),
+                "policy_class": policy.__class__.__name__,
+                "obs_dim": int(cfg.env.obs_dim),
+                "action_dim": int(cfg.env.action_dim),
+                "use_subgoal": bool(getattr(policy, "use_subgoal", False)),
+                "subgoal_dim": int(getattr(policy, "subgoal_dim", 0)),
+                "config": OmegaConf.to_container(cfg, resolve=True),
+            },
+            path,
+        )
 
     while total_steps < target_steps:
         batch = collect_rollout(
