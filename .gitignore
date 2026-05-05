@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+
+# Tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Project
+runs/
+wandb/
+outputs/
+*.parquet
+*.ckpt
+*.pt
+.hydra/
+
+# Unity
+unity_env/Library/
+unity_env/Temp/
+unity_env/Logs/
+unity_env/UserSettings/
+unity_env/Build/
+unity_env/Builds/
+unity_env/[Mm]emoryCaptures/
+
+# Secrets
+.env
+*.key
