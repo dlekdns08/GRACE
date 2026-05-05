@@ -114,12 +114,30 @@ def main(cfg: DictConfig) -> None:
         try:
             import torch
 
+            # `weights_only=True` is preferred but fails on dict checkpoints
+            # that include the resolved Hydra config (non-tensor data).
             try:
-                state = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+                state = torch.load(ckpt_path, map_location="cpu", weights_only=False)
             except TypeError:  # pragma: no cover - older torch
                 state = torch.load(ckpt_path, map_location="cpu")
-            policy.load_state_dict(state)
-            _log.info("Loaded policy checkpoint from %s", ckpt_path)
+            # Accept either a bare state_dict or our metadata-wrapped dict.
+            if isinstance(state, dict) and "policy_state_dict" in state:
+                state_dict = state["policy_state_dict"]
+            else:
+                state_dict = state
+            try:
+                missing, unexpected = policy.load_state_dict(state_dict, strict=False)
+                if missing or unexpected:
+                    _log.warning(
+                        "load_state_dict mismatch: missing=%s unexpected=%s",
+                        list(missing),
+                        list(unexpected),
+                    )
+                _log.info("Loaded policy checkpoint from %s", ckpt_path)
+            except Exception as exc:
+                _log.warning(
+                    "load_state_dict raised %s; continuing with fresh weights.", exc
+                )
         except Exception as exc:
             _log.warning("Failed to load %s: %s; continuing with fresh weights.", ckpt_path, exc)
     else:
