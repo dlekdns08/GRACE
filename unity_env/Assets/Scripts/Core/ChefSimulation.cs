@@ -12,7 +12,8 @@
 //   Action enum: 0=STAY, 1=N, 2=S, 3=E, 4=W, 5=INTERACT
 // Note: this differs from Carroll's Python INDEX_TO_ACTION ordering ([N,S,E,W,STAY,INTERACT]
 // at indices 0..5). The enum values above are GRACE's contract; the Python
-// parity layer (G6) handles the index remap at the IPC boundary.
+// parity layer (G6) handles the index remap at the IPC boundary
+// (see <see cref="ActionIndexMap"/> and configs/action_remap.json).
 
 using System;
 using System.Collections.Generic;
@@ -67,6 +68,20 @@ namespace Grace.Unity.Core
         /// <summary>Reward delta for delivering a soup (Carroll: +20).</summary>
         public const int RewardServe = 20;
 
+        // ---- shaped reward constants (Carroll's defaults) -------------------
+
+        /// <summary>Shaped reward when a chef places an onion into a pot.</summary>
+        public const int Shaped_PlacementInPot = 3;
+
+        /// <summary>
+        /// Shaped reward when a chef picks up a dish *while a pot is ready or
+        /// cooking* (i.e. a dish that is plausibly useful soon).
+        /// </summary>
+        public const int Shaped_DishPickup = 3;
+
+        /// <summary>Shaped reward when a chef picks up a cooked soup from a pot.</summary>
+        public const int Shaped_SoupPickup = 5;
+
         // ---- public state ---------------------------------------------------
 
         public readonly KitchenLayout Layout;
@@ -84,6 +99,13 @@ namespace Grace.Unity.Core
         public int Score;
         public int SoupsServed;
         public int MaxSteps;
+
+        /// <summary>
+        /// Pot-cooking-start dynamics. <c>true</c> = old_dynamics (auto-start
+        /// when the 3rd onion lands). <c>false</c> = new_dynamics (a chef must
+        /// INTERACT with a non-empty pot to start cooking).
+        /// </summary>
+        public bool PotAutoStartOnFull = true;
 
         // ---- ctor / reset ---------------------------------------------------
 
@@ -149,8 +171,15 @@ namespace Grace.Unity.Core
         // ---- tick -----------------------------------------------------------
 
         /// <summary>
-        /// Apply one joint action (one int per chef) and advance world by one
-        /// tick. Returns the team-summed reward delta this tick.
+        /// Apply one joint action and advance world by one tick. Returns the
+        /// team-summed sparse reward delta (Carroll: +20 per delivered soup).
+        /// </summary>
+        public int Tick(int[] jointActions) => Tick(jointActions, null);
+
+        /// <summary>
+        /// Variant that also writes per-agent shaped rewards into
+        /// <paramref name="shapedOut"/> (must be the same length as
+        /// <see cref="Chefs"/>, or null to skip shaping output).
         /// </summary>
         /// <remarks>
         /// Order of operations (Carroll-faithful):
@@ -163,13 +192,19 @@ namespace Grace.Unity.Core
         ///   <item><description><c>Step++</c>.</description></item>
         /// </list>
         /// </remarks>
-        public int Tick(int[] jointActions)
+        public int Tick(int[] jointActions, int[] shapedOut)
         {
             if (jointActions == null) throw new ArgumentNullException(nameof(jointActions));
             if (jointActions.Length != Chefs.Count)
                 throw new ArgumentException(
                     $"jointActions length {jointActions.Length} != #chefs {Chefs.Count}",
                     nameof(jointActions));
+            if (shapedOut != null && shapedOut.Length != Chefs.Count)
+                throw new ArgumentException(
+                    $"shapedOut length {shapedOut.Length} != #chefs {Chefs.Count}",
+                    nameof(shapedOut));
+            if (shapedOut != null)
+                Array.Clear(shapedOut, 0, shapedOut.Length);
 
             int reward = 0;
             int n = Chefs.Count;
@@ -216,7 +251,7 @@ namespace Grace.Unity.Core
             for (int i = 0; i < n; i++)
             {
                 if (jointActions[i] == Action_INTERACT)
-                    reward += ResolveInteract(i);
+                    reward += ResolveInteract(i, shapedOut);
             }
 
             // 5) Tick all pots.
@@ -307,11 +342,25 @@ namespace Grace.Unity.Core
         }
 
         /// <summary>
+        /// True iff at least one pot is currently cooking or already ready —
+        /// used to gate the dish-pickup shaped reward.
+        /// </summary>
+        private bool AnyPotUseful()
+        {
+            foreach (var pot in Pots.Values)
+            {
+                if (pot.IsReady || pot.IsCooking) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// Resolve an INTERACT for chef <paramref name="i"/>. Inspects the tile
         /// directly in front of the chef (position + facing delta). Returns
-        /// reward delta (only nonzero on serve).
+        /// sparse reward delta (only nonzero on serve). Per-agent shaping is
+        /// written to <paramref name="shapedOut"/>[i] when not null.
         /// </summary>
-        private int ResolveInteract(int i)
+        private int ResolveInteract(int i, int[] shapedOut)
         {
             var chef = Chefs[i];
             GridPos front = chef.Position + DirDelta(chef.Facing);
@@ -346,19 +395,37 @@ namespace Grace.Unity.Core
                     return 0;
 
                 case TileKind.DishDispenser:
-                    if (chef.Held == HeldItem.None) chef.Held = HeldItem.Dish;
+                    if (chef.Held == HeldItem.None)
+                    {
+                        chef.Held = HeldItem.Dish;
+                        if (shapedOut != null && AnyPotUseful())
+                            shapedOut[i] += Shaped_DishPickup;
+                    }
                     return 0;
 
                 case TileKind.Pot:
                     if (!Pots.TryGetValue(front, out PotState pot)) return 0;
                     if (chef.Held == HeldItem.Onion)
                     {
-                        if (pot.TryAddOnion()) chef.Held = HeldItem.None;
+                        if (pot.TryAddOnion(PotAutoStartOnFull))
+                        {
+                            chef.Held = HeldItem.None;
+                            if (shapedOut != null) shapedOut[i] += Shaped_PlacementInPot;
+                        }
                     }
                     else if (chef.Held == HeldItem.Dish && pot.IsReady)
                     {
                         if (pot.TryServeTo(out HeldItem replaced))
+                        {
                             chef.Held = replaced;
+                            if (shapedOut != null) shapedOut[i] += Shaped_SoupPickup;
+                        }
+                    }
+                    else if (!PotAutoStartOnFull && chef.Held == HeldItem.None)
+                    {
+                        // Carroll new_dynamics: empty hand + non-empty pot →
+                        // start cooking via interact. Auto-start path skips this.
+                        pot.TryStartCooking();
                     }
                     return 0;
 
