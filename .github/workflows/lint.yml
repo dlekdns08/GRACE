@@ -1,10 +1,9 @@
 name: Lint
 
+# Auto-triggers disabled — self-hosted runner not yet provisioned. Re-enable
+# the `push` and `pull_request` blocks once the runner is wired up.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   ruff:
