@@ -86,6 +86,29 @@ def main(cfg: DictConfig) -> None:
         action_dim=int(cfg.env.action_dim),
     )
 
+    # Optional warm-start from a Behaviour-Cloned checkpoint (Phase 9).
+    init_ckpt = cfg.get("init_checkpoint", None)
+    if init_ckpt is not None:
+        try:
+            state = torch.load(str(init_ckpt), map_location="cpu", weights_only=False)
+        except TypeError:  # pragma: no cover - older torch without weights_only
+            state = torch.load(str(init_ckpt), map_location="cpu")
+        if isinstance(state, dict):
+            state_dict = (
+                state.get("policy_state_dict")
+                or state.get("state_dict")
+                or state
+            )
+        else:  # pragma: no cover - non-dict checkpoints are unusual but tolerated
+            state_dict = state
+        missing, unexpected = policy.load_state_dict(state_dict, strict=False)
+        _log.info(
+            "init_checkpoint loaded from %s; missing=%d unexpected=%d",
+            init_ckpt,
+            len(missing),
+            len(unexpected),
+        )
+
     # Meta-policy: some variants need a reference to the action policy
     # (e.g. EntropyMetaPolicy looks at the policy's own logits).
     try:
