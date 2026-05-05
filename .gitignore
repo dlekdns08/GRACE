@@ -18,7 +18,7 @@ ProjectSettings/
 .ruff_cache/
 .coverage
 htmlcov/
-
+MobileDependencyResolver/
 # Editor
 .vscode/
 .idea/
