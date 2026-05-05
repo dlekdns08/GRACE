@@ -27,7 +27,7 @@ PYTHONPATH="$REPO_ROOT" python scripts/sweep.py --run \
     --manifest "$MANIFEST" \
     --retry-failed \
     meta=fixed_k10,fixed_k100,never,entropy,learned \
-    seed="$SEEDS" \
+    experiment.seed="$SEEDS" \
     env="$ENV" \
     policy=llm_augmented \
     llm="$LLM" \
