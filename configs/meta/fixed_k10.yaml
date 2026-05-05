@@ -1,0 +1,3 @@
+name: fixed_k10
+_target_: src.policies.meta_heuristic.FixedKMetaPolicy
+k: 10

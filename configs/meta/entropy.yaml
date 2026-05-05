@@ -1,0 +1,4 @@
+name: entropy
+_target_: src.policies.meta_heuristic.EntropyMetaPolicy
+threshold: 1.2
+min_steps_between: 5

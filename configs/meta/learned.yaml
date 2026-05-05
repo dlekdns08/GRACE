@@ -1,0 +1,11 @@
+name: learned
+_target_: src.policies.meta_learned.LearnedMetaPolicy
+hidden_dim: 64
+
+training:
+  trainer: grpo
+  call_cost: 0.01      # penalty per LLM call
+  group_size: 8        # GRPO group size
+  learning_rate: 3e-4
+  total_groups: 5000
+  kl_coef: 0.02        # KL to reference policy
