@@ -1,4 +1,4 @@
-"""Generate Pareto / learning-curve / call-step plots over a glob of runs.
+"""Generate Pareto / learning-curve / call-step / transfer plots over a glob of runs.
 
 Each run directory is expected to contain (as written by
 :class:`src.utils.logging.RolloutLogger`):
@@ -8,10 +8,12 @@ Each run directory is expected to contain (as written by
 * ``episodes.parquet`` — one row per training episode.
 * ``transitions.parquet`` — one row per env step.
 * ``llm_calls.parquet`` — one row per actual LLM call.
+* ``transfer_results.parquet`` — optional; produced by ``scripts/eval_transfer.py``.
 
 Usage::
 
     python scripts/plot_results.py "runs/*_seed*" --out figures/
+    python scripts/plot_results.py "runs/*_seed*" --out figures/ --statistics
 """
 
 from __future__ import annotations
@@ -41,6 +43,10 @@ from src.eval.metrics import (  # noqa: E402
     call_step_distribution,
     llm_calls_per_episode,
 )
+from src.eval.statistics import (  # noqa: E402
+    compare_meta_policies,
+    pareto_dominance,
+)
 
 
 @dataclass(slots=True)
@@ -50,10 +56,12 @@ class RunData:
     path: Path
     name: str  # experiment.name (used to color/group)
     meta_name: str  # short label for legend (meta-policy)
+    train_layout: str  # env.layout / env.name (for transfer faceting)
     seed: int
     episodes: pd.DataFrame
     transitions: pd.DataFrame
     llm_calls: pd.DataFrame
+    transfer: pd.DataFrame
 
 
 def _read_optional_parquet(path: Path) -> pd.DataFrame:
@@ -79,6 +87,18 @@ def _meta_label(cfg, fallback: str) -> str:
         return fallback
 
 
+def _train_layout(cfg, fallback: str) -> str:
+    try:
+        env = cfg.env
+        if "layout" in env:
+            return str(env.layout)
+        if "name" in env:
+            return str(env.name)
+        return fallback
+    except Exception:
+        return fallback
+
+
 def load_runs(pattern: str) -> list[RunData]:
     """Load every run directory matched by the glob ``pattern``."""
     runs: list[RunData] = []
@@ -98,21 +118,25 @@ def load_runs(pattern: str) -> list[RunData]:
         except Exception:
             name = path.name
         meta_name = _meta_label(cfg, fallback=name)
+        train_layout = _train_layout(cfg, fallback=path.name)
         seed = _seed_from_cfg(cfg)
 
         episodes = _read_optional_parquet(path / "episodes.parquet")
         transitions = _read_optional_parquet(path / "transitions.parquet")
         llm_calls = _read_optional_parquet(path / "llm_calls.parquet")
+        transfer = _read_optional_parquet(path / "transfer_results.parquet")
 
         runs.append(
             RunData(
                 path=path,
                 name=name,
                 meta_name=meta_name,
+                train_layout=train_layout,
                 seed=seed,
                 episodes=episodes,
                 transitions=transitions,
                 llm_calls=llm_calls,
+                transfer=transfer,
             )
         )
     return runs
@@ -123,28 +147,95 @@ def _color_map(group_keys: list[str]) -> dict[str, tuple[float, float, float, fl
     return {k: cmap(i % 10) for i, k in enumerate(sorted(set(group_keys)))}
 
 
+# ----------------------------------------------------------------- summary frame
+def _build_run_summary(runs: list[RunData]) -> pd.DataFrame:
+    """Per-run aggregate row used by Pareto + statistics."""
+    rows: list[dict] = []
+    for run in runs:
+        agg = aggregate_episodes(run.episodes)
+        if agg["n_episodes"] == 0:
+            continue
+        rows.append(
+            {
+                "run": run.path.name,
+                "meta": run.meta_name,
+                "seed": run.seed,
+                "mean_return": float(agg["mean_return"]),
+                "mean_soup_count": float(agg["mean_soup_count"]),
+                "mean_llm_calls": float(agg["mean_llm_calls"]),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def plot_pareto(runs: list[RunData], out_path: Path) -> None:
-    """One point per run: x = mean LLM calls / episode, y = mean soup_count."""
+    """One point per run with Pareto-frontier highlighting.
+
+    Dominated points are drawn in light gray so the eye is drawn to the
+    frontier; non-dominated points are coloured by meta-policy and the
+    frontier itself is connected by a dashed black line in cost order.
+    """
     fig, ax = plt.subplots(figsize=(6, 5))
-    keys = [r.meta_name for r in runs]
-    colors = _color_map(keys)
+    summary = _build_run_summary(runs)
+    if summary.empty:
+        ax.text(0.5, 0.5, "No runs with episode data", ha="center", va="center")
+        ax.set_axis_off()
+        fig.tight_layout()
+        fig.savefig(out_path, dpi=120)
+        plt.close(fig)
+        return
+
+    frontier = pareto_dominance(
+        summary, cost_col="mean_llm_calls", perf_col="mean_soup_count"
+    )
+    frontier_keys = set(frontier["run"])
+
+    colors = _color_map(summary["meta"].tolist())
+
+    dominated = summary[~summary["run"].isin(frontier_keys)]
+    if not dominated.empty:
+        ax.scatter(
+            dominated["mean_llm_calls"],
+            dominated["mean_soup_count"],
+            color="lightgray",
+            s=40,
+            alpha=0.75,
+            label="dominated",
+        )
 
     seen_legend: set[str] = set()
-    for run in runs:
-        if run.episodes.empty:
-            continue
-        agg = aggregate_episodes(run.episodes)
-        x = agg["mean_llm_calls"]
-        y = agg["mean_soup_count"]
-        label = run.meta_name if run.meta_name not in seen_legend else None
-        seen_legend.add(run.meta_name)
-        ax.scatter(x, y, color=colors[run.meta_name], s=60, alpha=0.85, label=label)
+    for _, row in frontier.iterrows():
+        meta = row["meta"]
+        label = meta if meta not in seen_legend else None
+        seen_legend.add(meta)
+        ax.scatter(
+            row["mean_llm_calls"],
+            row["mean_soup_count"],
+            color=colors[meta],
+            s=80,
+            edgecolor="black",
+            linewidth=0.6,
+            label=label,
+            zorder=5,
+        )
+
+    if len(frontier) >= 2:
+        f_sorted = frontier.sort_values("mean_llm_calls")
+        ax.plot(
+            f_sorted["mean_llm_calls"],
+            f_sorted["mean_soup_count"],
+            color="black",
+            linestyle="--",
+            linewidth=1.2,
+            alpha=0.6,
+            zorder=4,
+        )
 
     ax.set_xlabel("Mean LLM calls per episode")
     ax.set_ylabel("Mean soup count")
     ax.set_title("Pareto: cost vs. performance")
     ax.grid(True, alpha=0.3)
-    if seen_legend:
+    if seen_legend or not dominated.empty:
         ax.legend(title="meta-policy", loc="best")
     fig.tight_layout()
     fig.savefig(out_path, dpi=120)
@@ -240,6 +331,79 @@ def plot_call_step_distribution(
     plt.close(fig)
 
 
+def plot_transfer_results(runs: list[RunData], out_path: Path) -> bool:
+    """Bar chart of mean soup count per (train_layout, test_layout).
+
+    Returns ``True`` if any transfer rows were found and a real plot was
+    rendered, ``False`` if the file is just a placeholder.
+    """
+    transfer_frames: list[pd.DataFrame] = []
+    for run in runs:
+        if run.transfer.empty:
+            continue
+        df = run.transfer.copy()
+        df["seed"] = run.seed
+        df["meta"] = run.meta_name
+        transfer_frames.append(df)
+
+    if not transfer_frames:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.text(0.5, 0.5, "No transfer_results.parquet found", ha="center", va="center")
+        ax.set_axis_off()
+        fig.tight_layout()
+        fig.savefig(out_path, dpi=120)
+        plt.close(fig)
+        return False
+
+    transfer = pd.concat(transfer_frames, ignore_index=True)
+    grouped = (
+        transfer.groupby(["train_layout", "test_layout"], dropna=False)["mean_soup_count"]
+        .agg(["mean", "std", "count"])
+        .reset_index()
+        .fillna(0.0)
+    )
+
+    train_layouts = sorted(grouped["train_layout"].unique())
+    test_layouts = sorted(grouped["test_layout"].unique())
+    n_test = len(test_layouts)
+    colors = _color_map(test_layouts)
+
+    fig, ax = plt.subplots(figsize=(max(6.0, 1.5 * len(train_layouts) * n_test), 5))
+    width = 0.8 / max(1, n_test)
+    x_base = np.arange(len(train_layouts))
+
+    for i, test_layout in enumerate(test_layouts):
+        slice_ = grouped[grouped["test_layout"] == test_layout].set_index("train_layout")
+        means = [
+            float(slice_.loc[t, "mean"]) if t in slice_.index else 0.0 for t in train_layouts
+        ]
+        stds = [
+            float(slice_.loc[t, "std"]) if t in slice_.index else 0.0 for t in train_layouts
+        ]
+        ax.bar(
+            x_base + i * width,
+            means,
+            width=width,
+            yerr=stds,
+            color=colors[test_layout],
+            alpha=0.85,
+            label=test_layout,
+            capsize=3,
+        )
+
+    ax.set_xticks(x_base + width * (n_test - 1) / 2)
+    ax.set_xticklabels(train_layouts, rotation=20, ha="right")
+    ax.set_xlabel("Train layout")
+    ax.set_ylabel("Mean soup count (transfer)")
+    ax.set_title("Zero-shot transfer to held-out layouts")
+    ax.grid(True, axis="y", alpha=0.3)
+    ax.legend(title="test layout", loc="best")
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=120)
+    plt.close(fig)
+    return True
+
+
 def print_summary_table(runs: list[RunData]) -> None:
     """Print a per-run summary table to stdout."""
     rows: list[dict] = []
@@ -267,6 +431,32 @@ def print_summary_table(runs: list[RunData]) -> None:
     print(df.to_string(index=False))
 
 
+def emit_statistics(runs: list[RunData], out_dir: Path) -> None:
+    """Compute and persist the cross-seed bootstrap CI table."""
+    summary = _build_run_summary(runs)
+    if summary.empty:
+        print("(no runs to compute statistics on)")
+        return
+    metas = sorted(set(summary["meta"]))
+    baseline = "fixed_k100" if "fixed_k100" in metas else metas[0]
+
+    table = compare_meta_policies(
+        summary,
+        baseline=baseline,
+        perf_col="mean_soup_count",
+        cost_col="mean_llm_calls",
+    )
+    print(f"\n# Statistics vs baseline {baseline!r} (paired bootstrap, 95% CI):")
+    if table.empty:
+        print("(no comparable metas)")
+    else:
+        print(table.round(4).to_string(index=False))
+
+    out_csv = out_dir / "statistics.csv"
+    table.to_csv(out_csv, index=False)
+    print(f"\nStatistics CSV written to {out_csv.resolve()}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("pattern", help="Glob matching run directories")
@@ -275,6 +465,11 @@ def main(argv: list[str] | None = None) -> int:
         "--max-steps", type=int, default=400, help="Max episode length (for histogram x-axis)"
     )
     parser.add_argument("--n-bins", type=int, default=20, help="Histogram bin count")
+    parser.add_argument(
+        "--statistics",
+        action="store_true",
+        help="Print and save bootstrap CI table comparing metas to fixed_k100.",
+    )
     args = parser.parse_args(argv)
 
     out_dir = Path(args.out)
@@ -295,7 +490,15 @@ def main(argv: list[str] | None = None) -> int:
         max_steps=args.max_steps,
         n_bins=args.n_bins,
     )
+    has_transfer = plot_transfer_results(runs, out_dir / "transfer_results.png")
+    if has_transfer:
+        print(f"Transfer plot written to {out_dir / 'transfer_results.png'}")
+
     print_summary_table(runs)
+
+    if args.statistics:
+        emit_statistics(runs, out_dir)
+
     print(f"\nFigures written to {out_dir.resolve()}")
     return 0
 
