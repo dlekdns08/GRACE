@@ -62,7 +62,7 @@ unity_env/
 ├── Assets/
 │   ├── Scenes/
 │   │   ├── 00_Title.unity
-│   │   ├── 01_LayoutSelect.unity
+│   │   ├── 01_Lobby.unity           ← layout select + Relay code lobby
 │   │   ├── 02_GameRoom.unity        ← main gameplay scene
 │   │   └── 03_RoundEnd.unity
 │   ├── Scripts/
