@@ -1,0 +1,7 @@
+{
+  "_doc": "Single source of truth for the action-id remap between GRACE Unity and Carroll's overcooked-ai Python. Both sides load this file (Unity via Resources.Load<TextAsset>(\"Config/action_remap\"), Python via src/envs/action_remap.py).",
+  "version": 1,
+  "names": ["STAY", "N", "S", "E", "W", "INTERACT"],
+  "grace_to_carroll": [4, 0, 1, 2, 3, 5],
+  "carroll_to_grace": [1, 2, 3, 4, 0, 5]
+}
