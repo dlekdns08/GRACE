@@ -1,17 +1,12 @@
 // HumanPlayDriver.cs
-// Phase 9 (Unity human-play) for GRACE.
-//
-// Drives the kitchen Tick() loop independently of ML-Agents so two players
-// can play locally on one keyboard. ML-Agents' Heuristic() path could
-// theoretically work but it interleaves DecisionRequester / Academy steps
-// with our movement, which makes timing for two simultaneous players
-// awkward. A fixed-tick driver is simpler and matches Python-side
-// expectations (one ApplyAction per agent per tick, then one kitchen.Tick).
+// Phase G1: moved to Grace.Unity.ML; action space updated to Carroll's
+// 6-action enum. Logic otherwise unchanged from Phase 9.
 
 using System.Collections.Generic;
+using Grace.Unity.Recording;
 using UnityEngine;
 
-namespace GRACE.Unity
+namespace Grace.Unity.ML
 {
     /// <summary>
     /// Fixed-rate driver for human-play mode. Polls each <see cref="PlayerInput"/>
@@ -139,10 +134,11 @@ namespace GRACE.Unity
 
             // Sanity guard: if no agent advanced the kitchen (e.g. agent 0
             // wasn't in the player list), force a tick so cooking timers
-            // still progress.
+            // still progress. We pass STAY for everyone so the world ticks
+            // without anyone moving.
             if (kitchen.Step == stepBefore)
             {
-                kitchen.Tick();
+                kitchen.TickFromAgentLastActions();
             }
         }
 

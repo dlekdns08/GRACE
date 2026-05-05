@@ -18,7 +18,7 @@
 using TMPro;
 using UnityEngine;
 
-namespace GRACE.Unity
+namespace Grace.Unity.ML
 {
     /// <summary>
     /// Drives a small read-only HUD. Inspector-drag each text widget; any null

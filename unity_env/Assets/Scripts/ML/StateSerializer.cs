@@ -1,6 +1,5 @@
 // StateSerializer.cs
-// Phase 6 (Unity ML-Agents scaffolding) for GRACE.
-// See DESIGN.md section 4.1.
+// Phase G1: moved to Grace.Unity.ML namespace. Logic unchanged from Phase 6.
 
 using System;
 using System.Collections.Generic;
@@ -8,7 +7,7 @@ using System.Globalization;
 using System.Text;
 using Unity.MLAgents.SideChannels;
 
-namespace GRACE.Unity
+namespace Grace.Unity.ML
 {
     /// <summary>
     /// ML-Agents side channel that ships a textual rendering of the kitchen

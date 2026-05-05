@@ -1,88 +1,44 @@
 // PotController.cs
-// Phase 6 (Unity ML-Agents scaffolding) for GRACE.
-// See DESIGN.md section 4.1.
+// Phase G1: refactored to a thin scene-side MonoBehaviour mirror of
+// Grace.Unity.Core.PotState. The Core simulation owns the authoritative pot
+// state; this MonoBehaviour just exposes the same fields for inspector
+// debugging, HUD reads, and back-compat with Phase 6 code that still
+// references PotController.OnionsIn / IsReady / etc.
 
 using UnityEngine;
 
-namespace GRACE.Unity
+namespace Grace.Unity.ML
 {
     /// <summary>
-    /// Represents a single Overcooked-style soup pot. Tracks how many onions
-    /// have been added, the cooking timer, and whether the soup is ready to be
-    /// served by an agent holding a dish.
+    /// Visual / inspector mirror of one <see cref="Grace.Unity.Core.PotState"/>.
+    /// Mutated by <see cref="KitchenEnvironment.Tick"/> after the simulation
+    /// runs; not the source of truth.
     /// </summary>
     public class PotController : MonoBehaviour
     {
-        public const int MaxOnions = 3;
+        public const int MaxOnions = Grace.Unity.Core.PotState.MaxOnions;
 
-        [Tooltip("Number of onions currently in the pot (0..MaxOnions).")]
+        [Tooltip("Number of onions currently in the pot (mirrored from ChefSimulation).")]
         public int OnionsIn;
 
-        [Tooltip("Remaining ticks until the soup is ready while cooking.")]
+        [Tooltip("Remaining ticks until the soup is ready (mirrored from ChefSimulation).")]
         public int CookingTime;
 
-        [Tooltip("How many ticks the pot needs to finish cooking once started.")]
-        public int CookingDuration = 20;
+        [Tooltip("Cooking duration constant — informational only; authoritative value lives in PotState.")]
+        public int CookingDuration = Grace.Unity.Core.PotState.CookingDuration;
 
-        [Tooltip("True once cooking has completed and the pot can be served.")]
+        [Tooltip("True once cooking has completed (mirrored from ChefSimulation).")]
         public bool IsReady;
 
-        /// <summary>True iff the pot has no onions and is not cooking / ready.</summary>
         public bool IsEmpty => OnionsIn == 0 && !IsCooking && !IsReady;
-
-        /// <summary>True while the cooking timer is counting down.</summary>
         public bool IsCooking => CookingTime > 0 && !IsReady;
 
         /// <summary>
-        /// Try to add an onion. Succeeds only if the pot is not yet full and
-        /// has not started cooking. Once the pot reaches <see cref="MaxOnions"/>
-        /// onions it automatically begins cooking.
+        /// Reset the visual mirror to empty. Note: this DOES NOT reset the
+        /// authoritative <see cref="Grace.Unity.Core.PotState"/>; that is
+        /// handled by <see cref="KitchenEnvironment.ResetEpisode"/> via
+        /// <see cref="Grace.Unity.Core.ChefSimulation.ResetEpisode"/>.
         /// </summary>
-        public bool TryAddOnion()
-        {
-            if (IsCooking || IsReady) return false;
-            if (OnionsIn >= MaxOnions) return false;
-
-            OnionsIn += 1;
-            if (OnionsIn >= MaxOnions)
-            {
-                // Auto-start cooking when full.
-                CookingTime = CookingDuration;
-            }
-            return true;
-        }
-
-        /// <summary>
-        /// Attempt to serve a soup to <paramref name="agent"/>. The agent must
-        /// be holding a dish (item id 2) and the pot must be ready. On success
-        /// the agent ends up holding a soup (item id 3) and the pot is reset.
-        /// </summary>
-        public bool TryServe(ChefAgent agent)
-        {
-            if (agent == null) return false;
-            if (!IsReady) return false;
-            if (agent.HeldItem != ChefAgent.Item.Dish) return false;
-
-            agent.HeldItem = ChefAgent.Item.Soup;
-            Reset();
-            return true;
-        }
-
-        /// <summary>Advance the pot one simulation tick.</summary>
-        public void Tick()
-        {
-            if (IsReady) return;
-            if (CookingTime <= 0) return;
-
-            CookingTime -= 1;
-            if (CookingTime <= 0)
-            {
-                CookingTime = 0;
-                IsReady = true;
-            }
-        }
-
-        /// <summary>Reset the pot to its empty starting state.</summary>
         public void Reset()
         {
             OnionsIn = 0;

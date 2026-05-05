@@ -1,11 +1,11 @@
 // PlayerInput.cs
-// Phase 9 (Unity human-play) for GRACE.
-// Maps a keyboard scheme to GRACE's 7-discrete-action space so a
-// HumanPlayDriver can poll a player's intent each tick.
+// Phase G1: moved to Grace.Unity.ML; action space updated to Carroll's
+// 6-action enum (STAY=0, N=1, S=2, E=3, W=4, INTERACT=5). Pickup/Drop
+// (Phase 6's id 5) is folded into INTERACT.
 
 using UnityEngine;
 
-namespace GRACE.Unity
+namespace Grace.Unity.ML
 {
     /// <summary>
     /// Polls Unity <see cref="Input"/> for one of two player schemes (WASD or
@@ -13,13 +13,12 @@ namespace GRACE.Unity
     /// <see cref="ChefAgent"/>'s action space:
     ///
     /// <list type="bullet">
-    ///   <item><description>0 = noop</description></item>
-    ///   <item><description>1 = up</description></item>
-    ///   <item><description>2 = down</description></item>
-    ///   <item><description>3 = left</description></item>
-    ///   <item><description>4 = right</description></item>
-    ///   <item><description>5 = pickup/drop</description></item>
-    ///   <item><description>6 = interact</description></item>
+    ///   <item><description>0 = STAY</description></item>
+    ///   <item><description>1 = N (up)</description></item>
+    ///   <item><description>2 = S (down)</description></item>
+    ///   <item><description>3 = E (right)</description></item>
+    ///   <item><description>4 = W (left)</description></item>
+    ///   <item><description>5 = INTERACT (formerly pickup/drop + interact)</description></item>
     /// </list>
     ///
     /// Uses <c>GetKeyDown</c> so each key press fires exactly once even if a
@@ -51,23 +50,23 @@ namespace GRACE.Unity
         {
             if (scheme == PlayerScheme.WASD)
             {
-                if (Input.GetKeyDown(KeyCode.W)) return ChefAgent.ActUp;
-                if (Input.GetKeyDown(KeyCode.S)) return ChefAgent.ActDown;
-                if (Input.GetKeyDown(KeyCode.A)) return ChefAgent.ActLeft;
-                if (Input.GetKeyDown(KeyCode.D)) return ChefAgent.ActRight;
-                if (Input.GetKeyDown(KeyCode.Space)) return ChefAgent.ActPickupDrop;
-                if (Input.GetKeyDown(KeyCode.E)) return ChefAgent.ActInteract;
+                if (Input.GetKeyDown(KeyCode.W)) return ChefAgent.ActN;
+                if (Input.GetKeyDown(KeyCode.S)) return ChefAgent.ActS;
+                if (Input.GetKeyDown(KeyCode.A)) return ChefAgent.ActW;
+                if (Input.GetKeyDown(KeyCode.D)) return ChefAgent.ActE;
+                if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.E))
+                    return ChefAgent.ActInteract;
             }
             else
             {
-                if (Input.GetKeyDown(KeyCode.UpArrow)) return ChefAgent.ActUp;
-                if (Input.GetKeyDown(KeyCode.DownArrow)) return ChefAgent.ActDown;
-                if (Input.GetKeyDown(KeyCode.LeftArrow)) return ChefAgent.ActLeft;
-                if (Input.GetKeyDown(KeyCode.RightArrow)) return ChefAgent.ActRight;
-                if (Input.GetKeyDown(KeyCode.RightShift)) return ChefAgent.ActPickupDrop;
-                if (Input.GetKeyDown(KeyCode.RightControl)) return ChefAgent.ActInteract;
+                if (Input.GetKeyDown(KeyCode.UpArrow)) return ChefAgent.ActN;
+                if (Input.GetKeyDown(KeyCode.DownArrow)) return ChefAgent.ActS;
+                if (Input.GetKeyDown(KeyCode.LeftArrow)) return ChefAgent.ActW;
+                if (Input.GetKeyDown(KeyCode.RightArrow)) return ChefAgent.ActE;
+                if (Input.GetKeyDown(KeyCode.RightShift) || Input.GetKeyDown(KeyCode.RightControl))
+                    return ChefAgent.ActInteract;
             }
-            return ChefAgent.ActNoop;
+            return ChefAgent.ActStay;
         }
     }
 }

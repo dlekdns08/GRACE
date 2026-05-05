@@ -1,21 +1,28 @@
 // ChefAgent.cs
-// Phase 6 (Unity ML-Agents scaffolding) for GRACE.
-// See DESIGN.md section 4.1.
+// Phase G1: refactored to a thin ML-Agents Agent that delegates all game
+// logic to Grace.Unity.Core.ChefSimulation. Action space collapses from
+// 7 (Phase 6) to 6 (Carroll: STAY, N, S, E, W, INTERACT).
+//
+// Inspector note: the BehaviorParameters component on each ChefAgent
+// GameObject MUST have its discrete action branch resized from 7 to 6.
 
+using Grace.Unity.Core;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
 using UnityEngine;
 
-namespace GRACE.Unity
+namespace Grace.Unity.ML
 {
     /// <summary>
-    /// One Overcooked chef. Inherits from ML-Agents <see cref="Agent"/>; raw
-    /// observations feed the RL policy while the parallel side channel pushes
-    /// a textual rendering for the LLM planner.
+    /// One Overcooked chef. Owns no game logic; reads/writes its state through
+    /// <see cref="KitchenEnvironment"/> which itself delegates to
+    /// <see cref="ChefSimulation"/>.
     /// </summary>
     public class ChefAgent : Agent
     {
+        /// <summary>Mirrors <see cref="HeldItem"/>; kept as a nested enum for
+        /// inspector display and back-compat with prior Phase 6 code.</summary>
         public enum Item
         {
             None = 0,
@@ -30,22 +37,32 @@ namespace GRACE.Unity
         [Header("Refs")]
         public KitchenEnvironment kitchen;
 
-        [Header("State")]
+        [Header("State (read-only, mirrored from ChefSimulation)")]
         public int GridX;
         public int GridY;
         public Item HeldItem = Item.None;
 
-        // Action ids: 0 noop, 1 up, 2 down, 3 left, 4 right, 5 pickup/drop, 6 interact
-        public const int ActNoop = 0;
-        public const int ActUp = 1;
-        public const int ActDown = 2;
-        public const int ActLeft = 3;
-        public const int ActRight = 4;
-        public const int ActPickupDrop = 5;
-        public const int ActInteract = 6;
+        // ---- 6-action space (Carroll-faithful) ------------------------------
+        public const int ActStay = ChefSimulation.Action_STAY;
+        public const int ActN = ChefSimulation.Action_N;
+        public const int ActS = ChefSimulation.Action_S;
+        public const int ActE = ChefSimulation.Action_E;
+        public const int ActW = ChefSimulation.Action_W;
+        public const int ActInteract = ChefSimulation.Action_INTERACT;
 
         /// <summary>Discrete action-space size. Mirrors Python action space.</summary>
-        public const int NumActions = 7;
+        public const int NumActions = ChefSimulation.NumActions;
+
+        // Back-compat aliases used by older code paths (HumanPlayDriver, etc.).
+        // Phase 6's separate Pickup/Drop and Up/Down/Left/Right names are
+        // remapped onto the 6-action enum: Pickup/Drop becomes INTERACT, and
+        // the cardinal aliases just re-export Action_N..Action_W.
+        public const int ActNoop = ActStay;
+        public const int ActUp = ActN;
+        public const int ActDown = ActS;
+        public const int ActLeft = ActW;
+        public const int ActRight = ActE;
+        public const int ActPickupDrop = ActInteract;
 
         private const float StepPenalty = -0.01f;
 
@@ -70,8 +87,7 @@ namespace GRACE.Unity
 
         /// <summary>
         /// Number of float observations <see cref="CollectObservations"/>
-        /// emits given the current kitchen wiring. Useful for HUD / recorder
-        /// metadata; ML-Agents itself doesn't need this.
+        /// emits given the current kitchen wiring.
         /// </summary>
         public int GetCurrentObservationDim()
         {
@@ -79,24 +95,23 @@ namespace GRACE.Unity
             int dim = 4;
             if (kitchen != null)
             {
-                // other agents: position (3) + held item (1) per other.
                 int others = Mathf.Max(0, kitchen.Agents.Count - 1);
                 dim += others * 4;
-                // pots: 3 floats each.
-                dim += kitchen.Pots.Count * 3;
-                // normalised step.
-                dim += 1;
+                int potCount = kitchen.Simulation != null
+                    ? kitchen.Simulation.Pots.Count
+                    : kitchen.Pots.Count;
+                dim += potCount * 3;
+                dim += 1; // normalised step
             }
             else
             {
-                dim += 1; // matches the 0f fallback emitted in CollectObservations.
+                dim += 1;
             }
             return dim;
         }
 
         public override void OnEpisodeBegin()
         {
-            // Only the "first" agent owns the world reset; other agents share it.
             if (kitchen != null && kitchen.Agents.Count > 0 && kitchen.Agents[0] == this)
             {
                 kitchen.ResetEpisode();
@@ -105,11 +120,9 @@ namespace GRACE.Unity
 
         public override void CollectObservations(VectorSensor sensor)
         {
-            // My own position and held item.
             sensor.AddObservation(transform.localPosition);
             sensor.AddObservation((int)HeldItem);
 
-            // Other agents' positions and held items (stable order from kitchen.Agents).
             if (kitchen != null)
             {
                 for (int i = 0; i < kitchen.Agents.Count; i++)
@@ -120,23 +133,34 @@ namespace GRACE.Unity
                     sensor.AddObservation((int)other.HeldItem);
                 }
 
-                // Each pot: (onions, cookingTimeLeft, isReady) as 3 floats.
-                for (int i = 0; i < kitchen.Pots.Count; i++)
+                // Pots: prefer authoritative simulation state, fall back to MB pots.
+                if (kitchen.Simulation != null)
                 {
-                    var p = kitchen.Pots[i];
-                    if (p == null)
+                    foreach (var kv in kitchen.Simulation.Pots)
                     {
-                        sensor.AddObservation(0f);
-                        sensor.AddObservation(0f);
-                        sensor.AddObservation(0f);
-                        continue;
+                        sensor.AddObservation((float)kv.Value.OnionsIn);
+                        sensor.AddObservation((float)kv.Value.CookingTime);
+                        sensor.AddObservation(kv.Value.IsReady ? 1f : 0f);
                     }
-                    sensor.AddObservation((float)p.OnionsIn);
-                    sensor.AddObservation((float)p.CookingTime);
-                    sensor.AddObservation(p.IsReady ? 1f : 0f);
+                }
+                else
+                {
+                    for (int i = 0; i < kitchen.Pots.Count; i++)
+                    {
+                        var p = kitchen.Pots[i];
+                        if (p == null)
+                        {
+                            sensor.AddObservation(0f);
+                            sensor.AddObservation(0f);
+                            sensor.AddObservation(0f);
+                            continue;
+                        }
+                        sensor.AddObservation((float)p.OnionsIn);
+                        sensor.AddObservation((float)p.CookingTime);
+                        sensor.AddObservation(p.IsReady ? 1f : 0f);
+                    }
                 }
 
-                // Episode step normalised to [0, 1].
                 float maxSteps = Mathf.Max(1, kitchen.MaxSteps);
                 sensor.AddObservation(Mathf.Clamp01(kitchen.Step / maxSteps));
             }
@@ -149,61 +173,38 @@ namespace GRACE.Unity
         public override void OnActionReceived(ActionBuffers actions)
         {
             int a = actions.DiscreteActions[0];
+            // Validate range: if the inspector wasn't bumped to size 6 the
+            // policy might still emit 6; clamp to STAY so we never crash.
+            if (a < 0 || a >= NumActions) a = ActStay;
             ApplyAction(a);
         }
 
         /// <summary>
-        /// Apply a single discrete action to the agent and the kitchen world.
-        /// Extracted from <see cref="OnActionReceived"/> so non-ML-Agents
-        /// drivers (e.g. <c>HumanPlayDriver</c>) can reuse the same logic
-        /// without going through <see cref="ActionBuffers"/>.
+        /// Stage <paramref name="discreteAction"/> as this agent's next move.
+        /// The actual world tick fires once per step on agent[0].
         /// </summary>
-        /// <remarks>
-        /// Side effects mirror <see cref="OnActionReceived"/> exactly:
-        /// movement / pickup / interact, step penalty, queued reward
-        /// consumption, kitchen tick (only when this is agent 0), and an
-        /// <see cref="Agent.EndEpisode"/> call when the kitchen reports done.
-        /// </remarks>
         public void ApplyAction(int discreteAction)
         {
             int a = discreteAction;
+            if (a < 0 || a >= NumActions) a = ActStay;
             LastAction = a;
 
-            int nx = GridX;
-            int ny = GridY;
-            switch (a)
-            {
-                case ActUp: ny = GridY + 1; break;
-                case ActDown: ny = GridY - 1; break;
-                case ActLeft: nx = GridX - 1; break;
-                case ActRight: nx = GridX + 1; break;
-                case ActPickupDrop: HandlePickupDrop(); break;
-                case ActInteract: HandleInteract(); break;
-                case ActNoop:
-                default: break;
-            }
-
-            if (a >= ActUp && a <= ActRight && kitchen != null && kitchen.InBounds(nx, ny))
-            {
-                if (!IsCellOccupiedByOtherAgent(nx, ny))
-                {
-                    GridX = nx;
-                    GridY = ny;
-                    transform.localPosition = new Vector3(nx, transform.localPosition.y, ny);
-                }
-            }
-
-            // Step penalty plus any reward queued by the kitchen (e.g. soup served).
+            // Step penalty (per agent, every tick).
             AddReward(StepPenalty);
+
+            // Only agent[0] drives the world: it gathers each agent's LastAction
+            // into a joint-action array and ticks the simulation once. After
+            // the tick, each agent's reward queue holds its share of any
+            // delivered soup reward.
+            if (kitchen != null && kitchen.Agents.Count > 0 && kitchen.Agents[0] == this)
+            {
+                kitchen.TickFromAgentLastActions();
+            }
+
+            // Pull queued reward (e.g. shared soup-delivery share) into ML-Agents.
             if (kitchen != null)
             {
                 AddReward(kitchen.ConsumeReward(this));
-            }
-
-            // Advance the world only on agent 0 to avoid double-stepping.
-            if (kitchen != null && kitchen.Agents.Count > 0 && kitchen.Agents[0] == this)
-            {
-                kitchen.Tick();
             }
 
             if (kitchen != null && kitchen.IsDone())
@@ -215,73 +216,13 @@ namespace GRACE.Unity
         public override void Heuristic(in ActionBuffers actionsOut)
         {
             var discrete = actionsOut.DiscreteActions;
-            discrete[0] = ActNoop;
+            discrete[0] = ActStay;
 
-            if (Input.GetKey(KeyCode.W)) discrete[0] = ActUp;
-            else if (Input.GetKey(KeyCode.S)) discrete[0] = ActDown;
-            else if (Input.GetKey(KeyCode.A)) discrete[0] = ActLeft;
-            else if (Input.GetKey(KeyCode.D)) discrete[0] = ActRight;
-            else if (Input.GetKey(KeyCode.Space)) discrete[0] = ActPickupDrop;
-            else if (Input.GetKey(KeyCode.E)) discrete[0] = ActInteract;
-        }
-
-        // ---- helpers --------------------------------------------------------
-
-        private bool IsCellOccupiedByOtherAgent(int x, int y)
-        {
-            if (kitchen == null) return false;
-            for (int i = 0; i < kitchen.Agents.Count; i++)
-            {
-                var other = kitchen.Agents[i];
-                if (other == null || other == this) continue;
-                if (other.GridX == x && other.GridY == y) return true;
-            }
-            return false;
-        }
-
-        private void HandlePickupDrop()
-        {
-            // Toggle: drop whatever we hold; otherwise grab a default onion (the
-            // physical counters/dispensers are not modelled in this scaffold).
-            if (HeldItem != Item.None)
-            {
-                HeldItem = Item.None;
-            }
-            else
-            {
-                HeldItem = Item.Onion;
-            }
-        }
-
-        private void HandleInteract()
-        {
-            if (kitchen == null) return;
-
-            // Look for an adjacent pot (4-neighbourhood).
-            PotController pot = kitchen.PotAt(GridX + 1, GridY)
-                              ?? kitchen.PotAt(GridX - 1, GridY)
-                              ?? kitchen.PotAt(GridX, GridY + 1)
-                              ?? kitchen.PotAt(GridX, GridY - 1);
-            if (pot == null) return;
-
-            if (HeldItem == Item.Onion)
-            {
-                if (pot.TryAddOnion()) HeldItem = Item.None;
-                return;
-            }
-
-            if (HeldItem == Item.Dish && pot.IsReady)
-            {
-                pot.TryServe(this);
-                return;
-            }
-
-            if (HeldItem == Item.Soup)
-            {
-                // Deliver: clears soup and credits the team.
-                HeldItem = Item.None;
-                kitchen.RegisterSoupDelivery(this);
-            }
+            if (Input.GetKey(KeyCode.W)) discrete[0] = ActN;
+            else if (Input.GetKey(KeyCode.S)) discrete[0] = ActS;
+            else if (Input.GetKey(KeyCode.A)) discrete[0] = ActW;
+            else if (Input.GetKey(KeyCode.D)) discrete[0] = ActE;
+            else if (Input.GetKey(KeyCode.E) || Input.GetKey(KeyCode.Space)) discrete[0] = ActInteract;
         }
     }
 }

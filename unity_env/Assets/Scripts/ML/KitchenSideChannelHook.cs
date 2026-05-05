@@ -1,12 +1,11 @@
 // KitchenSideChannelHook.cs
-// Phase 6 (Unity ML-Agents scaffolding) for GRACE.
-// See DESIGN.md section 4.1.
+// Phase G1: moved to Grace.Unity.ML namespace. Logic unchanged from Phase 6.
 
 using Unity.MLAgents;
 using Unity.MLAgents.SideChannels;
 using UnityEngine;
 
-namespace GRACE.Unity
+namespace Grace.Unity.ML
 {
     /// <summary>
     /// Scene glue that registers the <see cref="StateSerializer"/> side

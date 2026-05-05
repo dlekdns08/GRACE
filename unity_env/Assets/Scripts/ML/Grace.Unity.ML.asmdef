@@ -1,0 +1,17 @@
+{
+    "name": "Grace.Unity.ML",
+    "rootNamespace": "Grace.Unity.ML",
+    "references": [
+        "Grace.Unity.Core",
+        "Unity.ML-Agents",
+        "Unity.TextMeshPro"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": []
+}
