@@ -49,9 +49,7 @@ def _instantiate(cfg_node: DictConfig | dict, **kwargs):
 
 def _make_env(env_cfg: DictConfig | dict) -> OvercookedEnv:
     """Construct an env from the env-section of a saved config."""
-    backend = (
-        env_cfg.get("backend") if isinstance(env_cfg, dict) else env_cfg.backend
-    )
+    backend = env_cfg.get("backend") if isinstance(env_cfg, dict) else env_cfg.backend
     horizon = int(env_cfg.get("horizon", 50) if isinstance(env_cfg, dict) else env_cfg.horizon)
     if backend == "dummy":
         return DummyOvercookedEnv(max_steps=horizon)
@@ -64,9 +62,7 @@ def _make_env(env_cfg: DictConfig | dict) -> OvercookedEnv:
         from src.envs.unity_env import UnityOvercookedEnv  # type: ignore[import-not-found]
 
         unity_kwargs = (
-            env_cfg.get("unity", {})
-            if isinstance(env_cfg, dict)
-            else (env_cfg.get("unity") or {})
+            env_cfg.get("unity", {}) if isinstance(env_cfg, dict) else (env_cfg.get("unity") or {})
         )
         return UnityOvercookedEnv(**unity_kwargs)
     raise ValueError(f"Unknown env.backend: {backend!r}")
@@ -135,9 +131,7 @@ def main(cfg: DictConfig) -> None:
                     )
                 _log.info("Loaded policy checkpoint from %s", ckpt_path)
             except Exception as exc:
-                _log.warning(
-                    "load_state_dict raised %s; continuing with fresh weights.", exc
-                )
+                _log.warning("load_state_dict raised %s; continuing with fresh weights.", exc)
         except Exception as exc:
             _log.warning("Failed to load %s: %s; continuing with fresh weights.", ckpt_path, exc)
     else:

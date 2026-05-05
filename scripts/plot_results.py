@@ -48,8 +48,8 @@ class RunData:
     """One training run loaded from disk."""
 
     path: Path
-    name: str        # experiment.name (used to color/group)
-    meta_name: str   # short label for legend (meta-policy)
+    name: str  # experiment.name (used to color/group)
+    meta_name: str  # short label for legend (meta-policy)
     seed: int
     episodes: pd.DataFrame
     transitions: pd.DataFrame
@@ -217,9 +217,7 @@ def plot_call_step_distribution(
         return
 
     n_groups = len(by_group)
-    fig, axes = plt.subplots(
-        n_groups, 1, figsize=(7, max(2.5, 2.5 * n_groups)), sharex=True
-    )
+    fig, axes = plt.subplots(n_groups, 1, figsize=(7, max(2.5, 2.5 * n_groups)), sharex=True)
     if n_groups == 1:
         axes = [axes]
 
@@ -228,7 +226,7 @@ def plot_call_step_distribution(
     width = (edges[1] - edges[0]) * 0.9
     colors = _color_map(list(by_group.keys()))
 
-    for ax, (group, hists) in zip(axes, by_group.items()):
+    for ax, (group, hists) in zip(axes, by_group.items(), strict=False):
         stacked = np.stack(hists, axis=0)
         mean = stacked.mean(axis=0)
         ax.bar(centers, mean, width=width, color=colors[group], alpha=0.85)
@@ -272,9 +270,7 @@ def print_summary_table(runs: list[RunData]) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("pattern", help="Glob matching run directories")
-    parser.add_argument(
-        "--out", default="figures/", help="Output directory for .png figures"
-    )
+    parser.add_argument("--out", default="figures/", help="Output directory for .png figures")
     parser.add_argument(
         "--max-steps", type=int, default=400, help="Max episode length (for histogram x-axis)"
     )

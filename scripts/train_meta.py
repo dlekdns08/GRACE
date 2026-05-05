@@ -29,7 +29,6 @@ from src.policies.meta_learned import LearnedMetaPolicy
 from src.training.grpo_trainer import GRPOTrainer, collect_meta_rollout
 from src.utils import RolloutLogger, save_resolved_config, seed_everything
 
-
 _log = logging.getLogger(__name__)
 
 # How often to refresh the GRPO KL reference snapshot, in groups.
@@ -120,9 +119,7 @@ def main(cfg: DictConfig) -> None:
     action_ckpt = cfg.get("action_policy_ckpt", None)
     action_policy = _make_action_policy(cfg, action_ckpt)
 
-    meta_policy: LearnedMetaPolicy = _instantiate(
-        meta_cfg, obs_dim=int(cfg.env.obs_dim)
-    )
+    meta_policy: LearnedMetaPolicy = _instantiate(meta_cfg, obs_dim=int(cfg.env.obs_dim))
 
     trainer = GRPOTrainer(
         meta_policy=meta_policy,

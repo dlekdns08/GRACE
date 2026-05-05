@@ -60,7 +60,7 @@ def build_commands(argv: Iterable[str]) -> list[list[str]]:
     values_lists = [v for _, v in parsed]
     cmds: list[list[str]] = []
     for combo in product(*values_lists):
-        overrides = [f"{k}={v}" for k, v in zip(keys, combo)]
+        overrides = [f"{k}={v}" for k, v in zip(keys, combo, strict=False)]
         cmds.append([sys.executable, str(_TRAIN_SCRIPT), *overrides])
     return cmds
 
@@ -155,9 +155,7 @@ def _execute_sequential(cmds: list[list[str]]) -> list[SweepResult]:
     for i, cmd in enumerate(cmds, start=1):
         print(f"\n[{i}/{len(cmds)}] {' '.join(cmd)}")
         res = _run_one(cmd)
-        print(
-            f"  -> rc={res.returncode} elapsed={res.elapsed:.1f}s run_dir={res.run_dir}"
-        )
+        print(f"  -> rc={res.returncode} elapsed={res.elapsed:.1f}s run_dir={res.run_dir}")
         results.append(res)
     return results
 

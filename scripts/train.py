@@ -23,7 +23,6 @@ from src.policies import MetaPolicy, PPOPolicy
 from src.training import PPOTrainer, collect_rollout
 from src.utils import RolloutLogger, save_resolved_config, seed_everything
 
-
 _log = logging.getLogger(__name__)
 
 
@@ -94,11 +93,7 @@ def main(cfg: DictConfig) -> None:
         except TypeError:  # pragma: no cover - older torch without weights_only
             state = torch.load(str(init_ckpt), map_location="cpu")
         if isinstance(state, dict):
-            state_dict = (
-                state.get("policy_state_dict")
-                or state.get("state_dict")
-                or state
-            )
+            state_dict = state.get("policy_state_dict") or state.get("state_dict") or state
         else:  # pragma: no cover - non-dict checkpoints are unusual but tolerated
             state_dict = state
         missing, unexpected = policy.load_state_dict(state_dict, strict=False)
@@ -189,9 +184,7 @@ def main(cfg: DictConfig) -> None:
             logger.log_scalar("rollout/mean_length", mean_length, step=total_steps)
             logger.log_scalar("rollout/mean_soup_count", mean_soup, step=total_steps)
         logger.log_scalar("rollout/llm_calls", float(batch.n_llm_calls), step=total_steps)
-        logger.log_scalar(
-            "rollout/cached_calls", float(batch.n_cached_calls), step=total_steps
-        )
+        logger.log_scalar("rollout/cached_calls", float(batch.n_cached_calls), step=total_steps)
         logger.log_scalar(
             "rollout/invalid_subgoals",
             float(getattr(batch, "n_invalid_subgoals", 0)),

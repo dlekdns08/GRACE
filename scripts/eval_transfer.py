@@ -104,9 +104,7 @@ def main(cfg: DictConfig) -> None:
     try:
         from src.envs.python_env import PythonOvercookedEnv  # noqa: F401
     except Exception as exc:
-        _log.error(
-            "PythonOvercookedEnv unavailable (%s); skipping transfer evaluation.", exc
-        )
+        _log.error("PythonOvercookedEnv unavailable (%s); skipping transfer evaluation.", exc)
         return
 
     # Build the LLM client (cached) from the original run's config.

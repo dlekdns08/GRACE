@@ -150,9 +150,7 @@ def _run_sync_pass(
 
     n = len(requests)
     summary = summarize(responses)
-    avg_completion_len = (
-        sum(completion_lens) / len(completion_lens) if completion_lens else 0.0
-    )
+    avg_completion_len = sum(completion_lens) / len(completion_lens) if completion_lens else 0.0
     return {
         "n": n,
         "parse_success_rate": parse_ok / n if n else 0.0,

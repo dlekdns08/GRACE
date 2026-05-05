@@ -162,9 +162,7 @@ class _DemoRecorder:
 
 
 # ----------------------------------------------------------------------- mode setup
-def _build_agent1_controller(
-    args: argparse.Namespace, env: OvercookedEnv
-) -> tuple[Any, str]:
+def _build_agent1_controller(args: argparse.Namespace, env: OvercookedEnv) -> tuple[Any, str]:
     """Return ``(controller, source_label)`` for the non-keyboard agent.
 
     ``controller`` is one of:
@@ -362,12 +360,24 @@ def run_session(args: argparse.Namespace) -> None:
                 # Record demo rows.
                 if recorder.path is not None:
                     recorder.log(
-                        episode, ep_steps, "agent_0",
-                        obs.raw["agent_0"], a0, r0, done, "human",
+                        episode,
+                        ep_steps,
+                        "agent_0",
+                        obs.raw["agent_0"],
+                        a0,
+                        r0,
+                        done,
+                        "human",
                     )
                     recorder.log(
-                        episode, ep_steps, "agent_1",
-                        obs.raw["agent_1"], a1, r1, done, a1_source,
+                        episode,
+                        ep_steps,
+                        "agent_1",
+                        obs.raw["agent_1"],
+                        a1,
+                        r1,
+                        done,
+                        a1_source,
                     )
 
                 obs = step.obs
@@ -379,9 +389,7 @@ def run_session(args: argparse.Namespace) -> None:
                 if elapsed < target_dt:
                     time.sleep(target_dt - elapsed)
 
-            print(
-                f"Episode {episode}: return={ep_return:.2f}  steps={ep_steps}  soups={ep_soup}"
-            )
+            print(f"Episode {episode}: return={ep_return:.2f}  steps={ep_steps}  soups={ep_soup}")
             if args.flush_every_episode:
                 recorder.flush()
             episode += 1
@@ -426,20 +434,32 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--horizon", type=int, default=200)
     p.add_argument("--seed", type=int, default=-1, help=">= 0 to set; negative for unseeded")
     p.add_argument("--max-fps", dest="max_fps", type=float, default=10.0)
-    p.add_argument("--max-episodes", dest="max_episodes", type=int, default=0,
-                   help="Auto-exit after N episodes (0 = unlimited / prompt each time)")
+    p.add_argument(
+        "--max-episodes",
+        dest="max_episodes",
+        type=int,
+        default=0,
+        help="Auto-exit after N episodes (0 = unlimited / prompt each time)",
+    )
     p.add_argument("--record", default=None, help="Parquet path to record demos to")
-    p.add_argument("--flush-every-episode", action="store_true",
-                   help="Flush recorder after each episode (otherwise only at exit)")
-    p.add_argument("--checkpoint", default=None,
-                   help="PPO checkpoint for vs_policy / vs_llm modes")
+    p.add_argument(
+        "--flush-every-episode",
+        action="store_true",
+        help="Flush recorder after each episode (otherwise only at exit)",
+    )
+    p.add_argument("--checkpoint", default=None, help="PPO checkpoint for vs_policy / vs_llm modes")
     p.add_argument("--hidden-dim", dest="hidden_dim", type=int, default=128)
     p.add_argument("--n-layers", dest="n_layers", type=int, default=2)
     p.add_argument("--llm", default="mock", choices=["mock", "lmstudio"])
     p.add_argument("--llm-base-url", dest="llm_base_url", default="http://localhost:1234/v1")
     p.add_argument("--llm-model", dest="llm_model", default="qwen-mock")
-    p.add_argument("--llm-k", dest="llm_k", type=int, default=20,
-                   help="FixedKMetaPolicy period for vs_llm mode")
+    p.add_argument(
+        "--llm-k",
+        dest="llm_k",
+        type=int,
+        default=20,
+        help="FixedKMetaPolicy period for vs_llm mode",
+    )
     p.add_argument("--log-level", default="INFO")
     return p
 

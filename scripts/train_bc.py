@@ -83,8 +83,12 @@ def _build_policy(args: argparse.Namespace, obs_dim: int, action_dim: int) -> PP
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="train_bc")
     parser.add_argument("--demos", required=True, help="Parquet of human demonstrations")
-    parser.add_argument("--env-config", dest="env_config", default="dummy",
-                        help="Env name (dummy/cramped_room/...) or path to a YAML")
+    parser.add_argument(
+        "--env-config",
+        dest="env_config",
+        default="dummy",
+        help="Env name (dummy/cramped_room/...) or path to a YAML",
+    )
     parser.add_argument("--out", required=True, help="Output checkpoint path (.pt)")
     parser.add_argument("--policy", default="ppo", choices=["ppo", "llm_augmented"])
     parser.add_argument("--hidden-dim", dest="hidden_dim", type=int, default=128)
@@ -116,7 +120,9 @@ def main(argv: list[str] | None = None) -> None:
     dataset: BCDataset = load_demos_to_dataset(args.demos, agent_ids=agent_ids)
     _log.info(
         "loaded demo dataset: N=%d  obs_dim=%d  expected obs_dim=%d",
-        len(dataset), dataset.obs_dim, env_dims["obs_dim"],
+        len(dataset),
+        dataset.obs_dim,
+        env_dims["obs_dim"],
     )
     if dataset.obs_dim != env_dims["obs_dim"]:
         raise ValueError(
