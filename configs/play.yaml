@@ -1,0 +1,27 @@
+# Reference defaults for `scripts/play_human.py` (Phase 9).
+#
+# This config is informational — the play script uses argparse rather than
+# Hydra, but a YAML lets users keep their preferred play-time defaults next
+# to the rest of the experiment configs. To use these values, pass them on
+# the command line, e.g.
+#   python scripts/play_human.py --env dummy --mode coop --max-fps 10
+
+env: dummy                # dummy | cramped_room
+mode: solo                # solo | coop | vs_policy | vs_llm
+fps: 10
+horizon: 200
+seed: -1                  # negative = unseeded
+max_episodes: 0           # 0 = prompt after each episode
+record: null              # path to demos parquet, or null
+flush_every_episode: false
+
+# vs_policy / vs_llm options
+checkpoint: null          # path to a PPO state_dict
+hidden_dim: 128
+n_layers: 2
+
+# vs_llm options
+llm: mock                 # mock | lmstudio
+llm_base_url: http://localhost:1234/v1
+llm_model: qwen-mock
+llm_k: 20                 # FixedKMetaPolicy period
