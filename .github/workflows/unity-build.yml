@@ -1,10 +1,10 @@
 name: Unity Build
 
+# Tag-push auto-trigger disabled — self-hosted runner not yet provisioned.
+# Manual dispatch is kept available; re-add the `tags: ["v*"]` push trigger
+# once the runner is wired up.
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "v*"
 
 jobs:
   build:
