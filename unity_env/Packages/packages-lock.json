@@ -27,7 +27,7 @@
     },
     "com.unity.ai.inference": {
       "version": "2.6.1",
-      "depth": 2,
+      "depth": 1,
       "source": "registry",
       "dependencies": {
         "com.unity.burst": "1.8.17",
@@ -88,7 +88,7 @@
     },
     "com.unity.dt.app-ui": {
       "version": "2.1.1",
-      "depth": 3,
+      "depth": 2,
       "source": "registry",
       "dependencies": {
         "com.unity.modules.physics": "1.0.0",
@@ -235,7 +235,7 @@
     },
     "com.unity.sentis": {
       "version": "2.2.0",
-      "depth": 1,
+      "depth": 0,
       "source": "builtin",
       "dependencies": {
         "com.unity.ai.inference": "2.2.1"
