@@ -41,7 +41,7 @@ namespace Grace.Unity.EditorTools
             // OnValidate doesn't reliably update the hash for NetworkObjects that were
             // added programmatically — they all stay at 0, and NGO refuses to spawn
             // duplicates (Exception: "ScenePlacedObjects already contains hash 0").
-            foreach (var no in Object.FindObjectsByType<NetworkObject>(FindObjectsSortMode.None))
+            foreach (var no in Object.FindObjectsByType<NetworkObject>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 uint before = ReadHash(no);
                 if (RegenerateHash(no))
