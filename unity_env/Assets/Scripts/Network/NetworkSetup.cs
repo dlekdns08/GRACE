@@ -68,6 +68,17 @@ namespace Grace.Unity.Network
                 // contains hash 0" and the host never starts.
                 FixZeroNetworkObjectHashes();
 
+                // Randomize the port on each Play to avoid TIME_WAIT collisions
+                // when the editor is restarted quickly. Stays on 127.0.0.1 for
+                // single-machine dev. Any free ephemeral port works for host-mode.
+                var transport = nm.GetComponent<UnityTransport>();
+                if (transport != null)
+                {
+                    ushort port = (ushort)Random.Range(20000, 60000);
+                    transport.SetConnectionData("127.0.0.1", port);
+                    Debug.Log($"[NetworkSetup] UnityTransport port → {port}.");
+                }
+
                 Debug.Log("[NetworkSetup] No active host detected in 02_GameRoom; calling StartHost().");
                 bool ok = nm.StartHost();
                 Debug.Log($"[NetworkSetup] StartHost returned {ok}. IsHost={nm.IsHost} IsServer={nm.IsServer} IsListening={nm.IsListening}");
