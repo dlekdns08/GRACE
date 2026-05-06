@@ -238,9 +238,19 @@ namespace Grace.Unity.EditorTools
             AssetDatabase.CreateAsset(renderer.sharedMaterial, $"{GeneratedDir}/NetworkChef_Mat.mat");
 
             go.AddComponent<NetworkObject>();
-            go.AddComponent<NetworkChefAgent>();
+            var agent = go.AddComponent<NetworkChefAgent>();
             go.AddComponent<Grace.Unity.Input.PlayerInputController>();
             go.AddComponent<Grace.Unity.Input.OnlineTickDriver>();
+
+            // Visual components — without these the chef stays at world (0,0,0)
+            // even though replicated state moves on the simulation grid.
+            var interp = go.AddComponent<Grace.Unity.Render.MovementInterpolator>();
+            interp.tileSize = 1f;
+            interp.lerpDuration = 0.15f;
+            var visual = go.AddComponent<Grace.Unity.Render.ChefVisual>();
+            visual.NetworkAgent = agent;
+            visual.Interpolator = interp;
+            visual.BodyTransform = go.transform;
 
             var prefab = PrefabUtility.SaveAsPrefabAsset(go, path);
             Object.DestroyImmediate(go);
