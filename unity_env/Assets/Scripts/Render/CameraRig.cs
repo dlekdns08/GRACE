@@ -32,7 +32,7 @@ namespace Grace.Unity.Render
         /// <summary>Recompute camera position/rotation to fit the current kitchen.</summary>
         public void FrameKitchen()
         {
-            if (Kitchen == null) Kitchen = FindFirstObjectByType<KitchenRenderer>();
+            if (Kitchen == null) Kitchen = FindAnyObjectByType<KitchenRenderer>();
 
             float w = 7f;
             float h = 5f;
