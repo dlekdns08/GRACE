@@ -33,16 +33,23 @@ namespace Grace.Unity.EditorTools
 
             int changes = 0;
 
-            // 0. Recompute GlobalObjectIdHash on every scene-placed NetworkObject.
-            // Necessary when NetworkObjects were added programmatically because
-            // OnValidate often won't have fired with a non-null GlobalObjectId yet.
+            // 0. Force a unique GlobalObjectIdHash on every scene-placed NetworkObject.
+            // OnValidate doesn't reliably update the hash for NetworkObjects that were
+            // added programmatically — they all stay at 0, and NGO refuses to spawn
+            // duplicates (Exception: "ScenePlacedObjects already contains hash 0").
             foreach (var no in Object.FindObjectsByType<NetworkObject>(FindObjectsSortMode.None))
             {
+                uint before = ReadHash(no);
                 if (RegenerateHash(no))
                 {
                     EditorUtility.SetDirty(no);
-                    Debug.Log($"[GRACE Repair] Regenerated GlobalObjectIdHash on {no.gameObject.name} → {no.GetType().GetField("GlobalObjectIdHash", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(no)}.");
+                    uint after = ReadHash(no);
+                    Debug.Log($"[GRACE Repair] {no.gameObject.name}: GlobalObjectIdHash {before} → {after}.");
                     changes++;
+                }
+                else
+                {
+                    Debug.LogWarning($"[GRACE Repair] {no.gameObject.name}: hash unchanged ({before}). Will be force-set if 0.");
                 }
             }
 
@@ -116,24 +123,61 @@ namespace Grace.Unity.EditorTools
         }
 
         /// <summary>
-        /// Calls NetworkObject's internal OnValidate via reflection so its
-        /// GlobalObjectIdHash recomputes against the current saved scene asset.
+        /// Forces a unique non-zero GlobalObjectIdHash on the NetworkObject.
+        /// Tries NGO's internal OnValidate first; if that leaves the hash at 0
+        /// (common after programmatic AddComponent), assigns a deterministic
+        /// fallback derived from the GameObject's scene path so two objects
+        /// in the same scene end up with different hashes.
         /// Returns true if the hash actually changed.
         /// </summary>
         private static bool RegenerateHash(NetworkObject no)
         {
             var type = typeof(NetworkObject);
-            var hashField = type.GetField("GlobalObjectIdHash", BindingFlags.Instance | BindingFlags.NonPublic);
+            var hashField = type.GetField("GlobalObjectIdHash",
+                BindingFlags.Instance | BindingFlags.NonPublic);
             if (hashField == null) return false;
 
             uint before = (uint)hashField.GetValue(no);
-            var validate = type.GetMethod("OnValidate", BindingFlags.Instance | BindingFlags.NonPublic);
+
+            var validate = type.GetMethod("OnValidate",
+                BindingFlags.Instance | BindingFlags.NonPublic);
             if (validate != null)
             {
-                validate.Invoke(no, null);
+                try { validate.Invoke(no, null); } catch { /* swallow — fallback below */ }
             }
+
             uint after = (uint)hashField.GetValue(no);
+            if (after == 0)
+            {
+                // OnValidate didn't produce a non-zero hash (typical for
+                // programmatically-created NetworkObjects). Derive a stable
+                // hash from the scene path so siblings always differ.
+                uint fallback = unchecked((uint)ScenePath(no.gameObject).GetHashCode());
+                if (fallback == 0) fallback = 1;
+                hashField.SetValue(no, fallback);
+                after = fallback;
+            }
+
             return before != after;
+        }
+
+        private static uint ReadHash(NetworkObject no)
+        {
+            var f = typeof(NetworkObject).GetField("GlobalObjectIdHash",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            return f != null ? (uint)f.GetValue(no) : 0u;
+        }
+
+        private static string ScenePath(GameObject go)
+        {
+            string path = go.name;
+            var t = go.transform.parent;
+            while (t != null)
+            {
+                path = t.name + "/" + path;
+                t = t.parent;
+            }
+            return $"{go.scene.name}/{path}";
         }
     }
 }
