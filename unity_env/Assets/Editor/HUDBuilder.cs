@@ -129,7 +129,7 @@ namespace Grace.Unity.EditorTools
             text.fontSize = fontSize;
             text.alignment = align;
             text.color = Color.white;
-            text.enableWordWrapping = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
             text.raycastTarget = false;
             text.outlineWidth = 0.2f;
             text.outlineColor = new Color32(0, 0, 0, 200);
