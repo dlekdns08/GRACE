@@ -31,7 +31,7 @@ namespace Grace.Unity.Network
         public override void OnNetworkSpawn()
         {
             // Resolve a Kitchen reference if not pre-assigned by the spawner.
-            if (Kitchen == null) Kitchen = FindFirstObjectByType<NetworkKitchen>();
+            if (Kitchen == null) Kitchen = FindAnyObjectByType<NetworkKitchen>();
         }
 
         /// <summary>
@@ -41,7 +41,7 @@ namespace Grace.Unity.Network
         public void SubmitAction(int action)
         {
             if (!IsOwner) return;
-            if (Kitchen == null) Kitchen = FindFirstObjectByType<NetworkKitchen>();
+            if (Kitchen == null) Kitchen = FindAnyObjectByType<NetworkKitchen>();
             if (Kitchen == null) return;
             Kitchen.SubmitIntentServerRpc(action);
         }
