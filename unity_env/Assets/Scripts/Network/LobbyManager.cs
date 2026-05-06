@@ -53,5 +53,11 @@ namespace Grace.Unity.Network
             if (JoinButton != null) JoinButton.interactable = true;
             if (HostJoinCodeDisplay != null) HostJoinCodeDisplay.text = "";
         }
+
+        public void OnBackToTitleClicked()
+        {
+            if (Relay != null) Relay.Disconnect();
+            SceneManager.LoadScene("00_Title");
+        }
     }
 }
