@@ -17,7 +17,7 @@ namespace Grace.Unity.EditorTools
         [MenuItem("Tools/GRACE/Add AudioMaster to Current Scene")]
         public static void AddAudioMaster()
         {
-            var existing = UnityEngine.Object.FindFirstObjectByType<AudioMaster>();
+            var existing = UnityEngine.Object.FindAnyObjectByType<AudioMaster>();
             if (existing != null)
             {
                 Debug.LogWarning($"[GRACE AudioMasterBuilder] AudioMaster already exists ({existing.gameObject.name}). Aborting.");
