@@ -34,19 +34,61 @@ namespace Grace.Unity.Network
         // Tracks which slots are in use. Index = slot, value = true iff occupied.
         private readonly bool[] _slotInUse = new bool[MaxSlots];
 
+        private void Awake()
+        {
+            // Make sure the chef prefab is registered with NGO before any host
+            // start triggers a spawn. Idempotent — safe to call repeatedly.
+            var nm = NetworkManager.Singleton;
+            if (nm != null && NetworkChefPrefab != null)
+            {
+                if (nm.NetworkConfig.Prefabs == null ||
+                    !nm.NetworkConfig.Prefabs.Contains(NetworkChefPrefab))
+                {
+                    nm.AddNetworkPrefab(NetworkChefPrefab);
+                }
+                if (nm.NetworkConfig.PlayerPrefab == null)
+                {
+                    nm.NetworkConfig.PlayerPrefab = NetworkChefPrefab;
+                }
+            }
+        }
+
         public override void OnNetworkSpawn()
         {
             if (!IsServer) return;
             NetworkManager.Singleton.OnClientConnectedCallback += SpawnFor;
             NetworkManager.Singleton.OnClientDisconnectCallback += ReleaseSlot;
 
-            // Host themselves
-            SpawnFor(NetworkManager.Singleton.LocalClientId);
+            // Host themselves — but only if NGO didn't already auto-spawn one
+            // via NetworkConfig.PlayerPrefab. Avoids a double-spawn that would
+            // immediately despawn the first player object and confuse callers.
+            ulong hostId = NetworkManager.Singleton.LocalClientId;
+            if (NetworkManager.Singleton.ConnectedClients.TryGetValue(hostId, out var hostClient)
+                && hostClient.PlayerObject != null)
+            {
+                int slot = AcquireSlot();
+                if (slot >= 0)
+                {
+                    var existingChef = hostClient.PlayerObject.GetComponent<NetworkChefAgent>();
+                    if (existingChef != null)
+                    {
+                        existingChef.Kitchen = Kitchen;
+                        existingChef.PlayerIndex.Value = slot;
+                    }
+                    if (Kitchen != null) Kitchen.RegisterClientSlot(hostId, slot);
+                }
+            }
+            else
+            {
+                SpawnFor(hostId);
+            }
 
             // Already-connected clients (if scene loaded after connection)
             foreach (var clientId in NetworkManager.Singleton.ConnectedClientsIds)
             {
                 if (clientId == NetworkManager.Singleton.LocalClientId) continue;
+                if (NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var c)
+                    && c.PlayerObject != null) continue;
                 SpawnFor(clientId);
             }
         }
