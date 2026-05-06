@@ -44,6 +44,15 @@ namespace Grace.Unity.EditorTools
             lobby.Relay = relay;
             lobby.GameSceneName = "02_GameRoom";
 
+            // Reuse the prefab list created by the kitchen scaffold so chefs
+            // remain spawnable across the network when the lobby loads the game.
+            const string prefabListPath = "Assets/Settings/GraceNetworkPrefabsList.asset";
+            var prefabList = AssetDatabase.LoadAssetAtPath<NetworkPrefabsList>(prefabListPath);
+            if (prefabList != null)
+                nm.NetworkConfig.Prefabs.NetworkPrefabsLists.Add(prefabList);
+            var chefPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/_Generated/NetworkChef.prefab");
+            if (chefPrefab != null) nm.NetworkConfig.PlayerPrefab = chefPrefab;
+
             // Canvas
             var canvas = SceneBuildersCommon.NewCanvas("LobbyCanvas");
 
