@@ -7,6 +7,7 @@
 // "NetworkManager" GameObject in the scene; it ensures the GameObject
 // survives scene loads via DontDestroyOnLoad.
 
+using System.Reflection;
 using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
@@ -60,12 +61,43 @@ namespace Grace.Unity.Network
                     Debug.Log("[NetworkSetup] Registered PlayerPrefab with NGO prefab table.");
                 }
 
+                // Last-line-of-defense: if any scene-placed NetworkObject still
+                // has GlobalObjectIdHash == 0 (e.g. scaffold added it
+                // programmatically and OnValidate never ran), fix it before
+                // StartHost — otherwise NGO throws "ScenePlacedObjects already
+                // contains hash 0" and the host never starts.
+                FixZeroNetworkObjectHashes();
+
                 Debug.Log("[NetworkSetup] No active host detected in 02_GameRoom; calling StartHost().");
                 bool ok = nm.StartHost();
                 Debug.Log($"[NetworkSetup] StartHost returned {ok}. IsHost={nm.IsHost} IsServer={nm.IsServer} IsListening={nm.IsListening}");
                 if (!ok)
                 {
                     Debug.LogError("[NetworkSetup] StartHost failed. Inspect transport / prefab list.");
+                }
+            }
+        }
+
+        private static void FixZeroNetworkObjectHashes()
+        {
+            var hashField = typeof(NetworkObject).GetField(
+                "GlobalObjectIdHash",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            if (hashField == null) return;
+
+            var seen = new System.Collections.Generic.HashSet<uint>();
+            foreach (var no in Object.FindObjectsByType<NetworkObject>(FindObjectsSortMode.None))
+            {
+                uint h = (uint)hashField.GetValue(no);
+                if (h == 0u || !seen.Add(h))
+                {
+                    string path = no.gameObject.scene.name + "/" + no.gameObject.name;
+                    uint candidate = unchecked((uint)path.GetHashCode());
+                    if (candidate == 0u) candidate = 1u;
+                    while (seen.Contains(candidate)) candidate++;
+                    hashField.SetValue(no, candidate);
+                    seen.Add(candidate);
+                    Debug.Log($"[NetworkSetup] Patched GlobalObjectIdHash for '{no.gameObject.name}' → {candidate} (was {h}).");
                 }
             }
         }
