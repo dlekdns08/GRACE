@@ -156,7 +156,7 @@ namespace Grace.Unity.EditorTools
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             if (hashField == null) return;
 
-            foreach (var no in Object.FindObjectsByType<NetworkObject>(FindObjectsSortMode.None))
+            foreach (var no in Object.FindObjectsByType<NetworkObject>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 if (validate != null)
                 {
