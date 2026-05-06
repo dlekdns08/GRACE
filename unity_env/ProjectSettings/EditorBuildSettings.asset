@@ -7,14 +7,14 @@ EditorBuildSettings:
   m_Scenes:
   - enabled: 1
     path: Assets/Scenes/00_Title.unity
-    guid: 00000000000000000000000000000001
-  - enabled: 1
+    guid: f209cce3306504bffab54c2a89eff9d7
+  - enabled: 0
     path: Assets/Scenes/01_Lobby.unity
     guid: 00000000000000000000000000000002
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/02_GameRoom.unity
     guid: 00000000000000000000000000000003
   - enabled: 1
     path: Assets/Scenes/03_RoundEnd.unity
-    guid: 00000000000000000000000000000004
+    guid: 5edab675bba4c4973a315ee7b8f65f99
   m_configObjects: {}
