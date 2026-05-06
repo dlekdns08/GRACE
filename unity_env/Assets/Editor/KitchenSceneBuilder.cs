@@ -133,10 +133,31 @@ namespace Grace.Unity.EditorTools
             // (NetworkPlayerSpawner.Instantiate + SpawnAsPlayerObject) succeed.
             EnsurePrefabList(nm, chef);
 
+            // Save once so each scene-placed NetworkObject gets a stable
+            // GlobalObjectId, then regenerate the GlobalObjectIdHash on each
+            // (NGO's OnValidate doesn't auto-fire after programmatic AddComponent,
+            // which would leave both Kitchen and PlayerSpawner with hash 0 and
+            // make StartHost throw "ScenePlacedObjects already contains hash 0").
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene, scenePath);
+            RegenerateSceneNetworkHashes();
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, scenePath);
 
             Debug.Log($"[GRACE KitchenSceneBuilder] Built scene at {scenePath}");
+        }
+
+        private static void RegenerateSceneNetworkHashes()
+        {
+            var type = typeof(NetworkObject);
+            var validate = type.GetMethod("OnValidate",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            if (validate == null) return;
+            foreach (var no in Object.FindObjectsByType<NetworkObject>(FindObjectsSortMode.None))
+            {
+                validate.Invoke(no, null);
+                EditorUtility.SetDirty(no);
+            }
         }
 
         private static void EnsurePrefabList(NetworkManager nm, GameObject chef)
