@@ -114,5 +114,26 @@ namespace Grace.Unity.EditorTools
                 if (p != null && p.Prefab == prefab) return true;
             return false;
         }
+
+        /// <summary>
+        /// Calls NetworkObject's internal OnValidate via reflection so its
+        /// GlobalObjectIdHash recomputes against the current saved scene asset.
+        /// Returns true if the hash actually changed.
+        /// </summary>
+        private static bool RegenerateHash(NetworkObject no)
+        {
+            var type = typeof(NetworkObject);
+            var hashField = type.GetField("GlobalObjectIdHash", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (hashField == null) return false;
+
+            uint before = (uint)hashField.GetValue(no);
+            var validate = type.GetMethod("OnValidate", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (validate != null)
+            {
+                validate.Invoke(no, null);
+            }
+            uint after = (uint)hashField.GetValue(no);
+            return before != after;
+        }
     }
 }
