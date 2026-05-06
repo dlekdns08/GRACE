@@ -11,6 +11,7 @@
 // child PlayerInputController. The host's NetworkKitchen drives the simulation
 // itself; this component only handles the *client's* intent submission.
 
+using Grace.Unity.Core;
 using Grace.Unity.Network;
 using Unity.Netcode;
 using UnityEngine;
@@ -47,19 +48,28 @@ namespace Grace.Unity.Input
             if (Input != null && Input.NetworkAgent == null) Input.NetworkAgent = _agent;
         }
 
+        private bool _loggedOwnership;
+
         private void Update()
         {
+            if (!_loggedOwnership && IsSpawned)
+            {
+                Debug.Log($"[OnlineTickDriver] {name} IsOwner={IsOwner} IsSpawned={IsSpawned} OwnerClientId={OwnerClientId} HasInput={Input != null}");
+                _loggedOwnership = true;
+            }
             if (!IsOwner) return;
             if (Input == null || _agent == null) return;
 
             _accumulator += Time.deltaTime;
             float dt = 1f / TicksPerSecond;
-            // Drain whole ticks; cap at one submission per frame to avoid
-            // double-submitting the same latched intent.
             if (_accumulator >= dt)
             {
                 _accumulator -= dt;
                 int action = Input.FlushIntent();
+                if (action != ChefSimulation.Action_STAY)
+                {
+                    Debug.Log($"[OnlineTickDriver] Submitting action {action}.");
+                }
                 _agent.SubmitAction(action);
             }
         }
