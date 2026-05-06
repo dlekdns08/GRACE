@@ -50,18 +50,15 @@ namespace Grace.Unity.EditorTools
                 var list = EnsurePrefabList();
                 if (list != null && !ContainsPrefab(list, chef))
                 {
-                    list.PrefabList.Add(new NetworkPrefab { Prefab = chef });
+                    list.Add(new NetworkPrefab { Prefab = chef });
                     EditorUtility.SetDirty(list);
                     AssetDatabase.SaveAssets();
                     Debug.Log("[GRACE Repair] Added NetworkChef to NetworkPrefabsList.");
                     changes++;
                 }
 
-                if (list != null && (nm.NetworkConfig.Prefabs.NetworkPrefabsLists == null
-                    || !nm.NetworkConfig.Prefabs.NetworkPrefabsLists.Contains(list)))
+                if (list != null && !nm.NetworkConfig.Prefabs.NetworkPrefabsLists.Contains(list))
                 {
-                    if (nm.NetworkConfig.Prefabs.NetworkPrefabsLists == null)
-                        nm.NetworkConfig.Prefabs.NetworkPrefabsLists = new List<NetworkPrefabsList>();
                     nm.NetworkConfig.Prefabs.NetworkPrefabsLists.Add(list);
                     Debug.Log("[GRACE Repair] Hooked NetworkPrefabsList into NetworkManager.NetworkConfig.");
                     changes++;
@@ -98,7 +95,6 @@ namespace Grace.Unity.EditorTools
                 System.IO.Directory.CreateDirectory("Assets/Settings");
 
             list = ScriptableObject.CreateInstance<NetworkPrefabsList>();
-            list.PrefabList = new List<NetworkPrefab>();
             AssetDatabase.CreateAsset(list, path);
             AssetDatabase.SaveAssets();
             Debug.Log($"[GRACE Repair] Created {path}.");
@@ -107,7 +103,6 @@ namespace Grace.Unity.EditorTools
 
         private static bool ContainsPrefab(NetworkPrefabsList list, GameObject prefab)
         {
-            if (list.PrefabList == null) return false;
             foreach (var p in list.PrefabList)
                 if (p != null && p.Prefab == prefab) return true;
             return false;
