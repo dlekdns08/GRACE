@@ -86,7 +86,7 @@ namespace Grace.Unity.Network
             if (hashField == null) return;
 
             var seen = new System.Collections.Generic.HashSet<uint>();
-            foreach (var no in Object.FindObjectsByType<NetworkObject>(FindObjectsSortMode.None))
+            foreach (var no in Object.FindObjectsByType<NetworkObject>(FindObjectsInactive.Include, FindObjectsSortMode.None))
             {
                 uint h = (uint)hashField.GetValue(no);
                 if (h == 0u || !seen.Add(h))
