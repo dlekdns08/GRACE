@@ -26,7 +26,6 @@ MobileDependencyResolver/
 .idea/
 *.swp
 .DS_Store
-*.meta
 
 # Project
 runs/
