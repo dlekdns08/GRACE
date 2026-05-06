@@ -33,13 +33,17 @@ namespace Grace.Unity.EditorTools
 
             int changes = 0;
 
-            // 1. Ensure GameRoomBootstrap is attached.
-            var bootstrap = nm.gameObject.GetComponent<GameRoomBootstrap>();
-            if (bootstrap == null)
+            // 0. Recompute GlobalObjectIdHash on every scene-placed NetworkObject.
+            // Necessary when NetworkObjects were added programmatically because
+            // OnValidate often won't have fired with a non-null GlobalObjectId yet.
+            foreach (var no in Object.FindObjectsByType<NetworkObject>(FindObjectsSortMode.None))
             {
-                nm.gameObject.AddComponent<GameRoomBootstrap>();
-                Debug.Log("[GRACE Repair] Added GameRoomBootstrap to NetworkManager.");
-                changes++;
+                if (RegenerateHash(no))
+                {
+                    EditorUtility.SetDirty(no);
+                    Debug.Log($"[GRACE Repair] Regenerated GlobalObjectIdHash on {no.gameObject.name} → {no.GetType().GetField("GlobalObjectIdHash", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(no)}.");
+                    changes++;
+                }
             }
 
             // 2. Ensure a NetworkPrefabsList exists and contains NetworkChef.
