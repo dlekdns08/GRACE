@@ -30,7 +30,7 @@ namespace Grace.Unity.Network
         public override void OnNetworkSpawn()
         {
             if (!IsServer) return;
-            if (Kitchen == null) Kitchen = FindFirstObjectByType<NetworkKitchen>();
+            if (Kitchen == null) Kitchen = FindAnyObjectByType<NetworkKitchen>();
             if (Kitchen != null)
                 Kitchen.IsRunning.OnValueChanged += OnRunningChanged;
         }
