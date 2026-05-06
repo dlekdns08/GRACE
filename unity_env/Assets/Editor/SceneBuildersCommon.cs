@@ -52,7 +52,7 @@ namespace Grace.Unity.EditorTools
 
         public static GameObject EnsureEventSystem()
         {
-            var existing = Object.FindFirstObjectByType<EventSystem>();
+            var existing = Object.FindAnyObjectByType<EventSystem>();
             if (existing != null) return existing.gameObject;
             return new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
         }
