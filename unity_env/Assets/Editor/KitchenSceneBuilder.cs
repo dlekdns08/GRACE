@@ -83,6 +83,7 @@ namespace Grace.Unity.EditorTools
             };
             nmGO.AddComponent<RelayBootstrap>();
             nmGO.AddComponent<NetworkSetup>();
+            nmGO.AddComponent<GameRoomBootstrap>();
 
             // Kitchen GameObject.
             var kitchenGO = new GameObject("Kitchen");
