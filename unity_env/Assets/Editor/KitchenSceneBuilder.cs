@@ -63,11 +63,13 @@ namespace Grace.Unity.EditorTools
 
             // Camera rig.
             var camGO = new GameObject("CameraRig");
+            camGO.tag = "MainCamera";
             var cam = camGO.AddComponent<Camera>();
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = new Color(0.10f, 0.12f, 0.16f);
             camGO.transform.position = new Vector3(2.5f, 6f, -3f);
             camGO.transform.rotation = Quaternion.Euler(45f, 0f, 0f);
+            camGO.AddComponent<AudioListener>();
             camGO.AddComponent<CameraRig>();
 
             // NetworkManager + Transport + Relay + NetworkSetup.
