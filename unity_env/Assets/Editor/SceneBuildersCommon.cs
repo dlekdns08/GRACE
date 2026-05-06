@@ -89,7 +89,7 @@ namespace Grace.Unity.EditorTools
             text.fontSize = fontSize;
             text.alignment = align;
             text.color = Color.white;
-            text.enableWordWrapping = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
             text.raycastTarget = false;
             return text;
         }
