@@ -37,6 +37,36 @@ namespace Grace.Unity.Network
             if (nm.GetComponent<UnityTransport>() == null)
             {
                 Debug.LogError("[NetworkSetup] UnityTransport component missing on NetworkManager GameObject.");
+                return;
+            }
+
+            // If we entered the game scene directly (e.g. pressed Play in
+            // 02_GameRoom while developing) and no host was started by an
+            // earlier scene like 01_Lobby, start one now so NetworkKitchen's
+            // server-only simulation actually ticks. Skipped when we're
+            // already hosting/joined.
+            string activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            if (!nm.IsListening && activeScene == "02_GameRoom")
+            {
+                // Register PlayerPrefab in the prefab table before StartHost so
+                // NetworkPlayerSpawner.SpawnAsPlayerObject (and NGO's auto-
+                // player-spawn) succeed without "Prefab not found" errors when
+                // ForceSamePrefabs is enabled.
+                if (nm.NetworkConfig.PlayerPrefab != null
+                    && nm.NetworkConfig.Prefabs != null
+                    && !nm.NetworkConfig.Prefabs.Contains(nm.NetworkConfig.PlayerPrefab))
+                {
+                    nm.AddNetworkPrefab(nm.NetworkConfig.PlayerPrefab);
+                    Debug.Log("[NetworkSetup] Registered PlayerPrefab with NGO prefab table.");
+                }
+
+                Debug.Log("[NetworkSetup] No active host detected in 02_GameRoom; calling StartHost().");
+                bool ok = nm.StartHost();
+                Debug.Log($"[NetworkSetup] StartHost returned {ok}. IsHost={nm.IsHost} IsServer={nm.IsServer} IsListening={nm.IsListening}");
+                if (!ok)
+                {
+                    Debug.LogError("[NetworkSetup] StartHost failed. Inspect transport / prefab list.");
+                }
             }
         }
     }
