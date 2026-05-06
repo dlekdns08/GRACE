@@ -46,9 +46,11 @@ namespace Grace.Unity.Network
         // connect/disconnect to avoid OOB on _intents when clientIds skip values.
         private readonly Dictionary<ulong, int> _clientToSlot = new Dictionary<ulong, int>();
 
-        // Per-tick input intents from each client (host-only buffer)
+        // Per-tick input intents from each client (host-only buffer).
+        // Sized to the actual chef count from the loaded layout in LoadAndStart;
+        // the layout dictates how many chefs exist (e.g. cramped_room = 2).
         private const int MaxPlayers = 4;
-        private readonly int[] _intents = new int[MaxPlayers];
+        private int[] _intents = System.Array.Empty<int>();
 
         private void Awake()
         {
@@ -71,6 +73,10 @@ namespace Grace.Unity.Network
         {
             var layout = LayoutLoader.Load(LayoutName);
             _sim = new ChefSimulation(layout);
+
+            // Size the intent buffer to match the actual chef count produced by
+            // the layout. ChefSimulation.Tick rejects mismatched lengths.
+            _intents = new int[_sim.Chefs.Count];
 
             // Initialize replicated lists.
             Chefs.Clear();
