@@ -24,7 +24,7 @@ namespace Grace.Unity.EditorTools
         [MenuItem("Tools/GRACE/Add HUD to Current Scene")]
         public static void AddHud()
         {
-            var existing = Object.FindFirstObjectByType<HUD>();
+            var existing = Object.FindAnyObjectByType<HUD>();
             if (existing != null)
             {
                 Debug.LogWarning($"[GRACE HUDBuilder] HUD already exists at {existing.gameObject.name}. Aborting to avoid duplicates.");
@@ -44,7 +44,7 @@ namespace Grace.Unity.EditorTools
             scaler.matchWidthOrHeight = 0.5f;
 
             // EventSystem (only one allowed per scene)
-            if (Object.FindFirstObjectByType<EventSystem>() == null)
+            if (Object.FindAnyObjectByType<EventSystem>() == null)
             {
                 var esGO = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
                 Undo.RegisterCreatedObjectUndo(esGO, "Add HUD");
@@ -91,7 +91,7 @@ namespace Grace.Unity.EditorTools
             hud.Player2HeldText = p2;
             hud.TicksPerSecond = 8f;
 
-            var netKitchen = Object.FindFirstObjectByType<NetworkKitchen>();
+            var netKitchen = Object.FindAnyObjectByType<NetworkKitchen>();
             if (netKitchen != null)
             {
                 hud.Kitchen = netKitchen;
