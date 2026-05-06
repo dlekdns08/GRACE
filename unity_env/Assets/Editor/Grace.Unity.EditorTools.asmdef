@@ -9,6 +9,7 @@
     "Grace.Unity.UI",
     "Grace.Unity.Audio",
     "Unity.Netcode.Runtime",
+    "Unity.RenderPipelines.Core.Runtime",
     "Unity.RenderPipelines.Universal.Runtime",
     "Unity.RenderPipelines.Universal.Editor",
     "Unity.TextMeshPro"
