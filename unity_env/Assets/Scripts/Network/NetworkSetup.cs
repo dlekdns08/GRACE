@@ -24,14 +24,17 @@ namespace Grace.Unity.Network
         private void Awake()
         {
             DontDestroyOnLoad(gameObject);
-            if (NetworkManager.Singleton == null)
+        }
+
+        private void Start()
+        {
+            var nm = NetworkManager.Singleton ?? GetComponent<NetworkManager>();
+            if (nm == null)
             {
                 Debug.LogError("[NetworkSetup] NetworkManager not found. Add the Netcode NetworkManager component to this GameObject.");
                 return;
             }
-            // Configure UnityTransport to use Relay (set at runtime by RelayBootstrap)
-            var transport = NetworkManager.Singleton.GetComponent<UnityTransport>();
-            if (transport == null)
+            if (nm.GetComponent<UnityTransport>() == null)
             {
                 Debug.LogError("[NetworkSetup] UnityTransport component missing on NetworkManager GameObject.");
             }
