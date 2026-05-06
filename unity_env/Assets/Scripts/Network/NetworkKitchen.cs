@@ -126,8 +126,16 @@ namespace Grace.Unity.Network
             // Derive the player slot from the verified sender clientId so a
             // misbehaving client cannot overwrite another player's intent.
             ulong sender = rpc.Receive.SenderClientId;
-            if (!_clientToSlot.TryGetValue(sender, out int slot)) return;
-            if (slot < 0 || slot >= _intents.Length) return;
+            if (!_clientToSlot.TryGetValue(sender, out int slot))
+            {
+                Debug.LogWarning($"[NetworkKitchen] Rejected intent from clientId={sender}: not registered. Registered slots: [{string.Join(",", _clientToSlot)}]");
+                return;
+            }
+            if (slot < 0 || slot >= _intents.Length)
+            {
+                Debug.LogWarning($"[NetworkKitchen] Rejected intent: slot {slot} out of range (intents.Length={_intents.Length}).");
+                return;
+            }
             if (action < 0 || action >= ChefSimulation.NumActions) return;
             _intents[slot] = action;
         }
