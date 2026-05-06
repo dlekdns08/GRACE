@@ -114,8 +114,8 @@ namespace Grace.Unity.Network
         public bool TryGetClientSlot(ulong clientId, out int slot) =>
             _clientToSlot.TryGetValue(clientId, out slot);
 
-        [ServerRpc(RequireOwnership = false)]
-        public void SubmitIntentServerRpc(int action, ServerRpcParams rpc = default)
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        public void SubmitIntentServerRpc(int action, RpcParams rpc = default)
         {
             // Derive the player slot from the verified sender clientId so a
             // misbehaving client cannot overwrite another player's intent.
