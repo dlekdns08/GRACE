@@ -33,8 +33,54 @@ namespace Grace.Unity.Render
         private byte _lastFacing = 255;
         private byte _lastHeld = 255;
 
+        // Diagnostic logging — drops a snapshot once per second so we can see
+        // why the visual isn't following the simulated chef.
+        private float _diagTimer;
+
         private void LateUpdate()
         {
+            // Periodic diagnostic dump (1 Hz). Wraps state access in a try block
+            // so a "not spawned yet" exception doesn't kill the visual loop.
+            _diagTimer += Time.deltaTime;
+            if (_diagTimer >= 1f)
+            {
+                _diagTimer = 0f;
+                try
+                {
+                    bool gotState = TryReadState(out int dx, out int dy, out byte df, out byte dh);
+                    int playerIndex = -1;
+                    bool kitchenAttached = false;
+                    int chefsCount = -1;
+                    bool agentSpawned = false;
+                    if (NetworkAgent != null)
+                    {
+                        agentSpawned = NetworkAgent.IsSpawned;
+                        if (agentSpawned) playerIndex = NetworkAgent.PlayerIndex.Value;
+                        if (NetworkAgent.Kitchen != null)
+                        {
+                            kitchenAttached = true;
+                            if (NetworkAgent.Kitchen.IsSpawned && NetworkAgent.Kitchen.Chefs != null)
+                                chefsCount = NetworkAgent.Kitchen.Chefs.Count;
+                        }
+                    }
+                    Debug.Log(
+                        $"[ChefVisual] {name} " +
+                        $"NetworkAgent={(NetworkAgent != null)} " +
+                        $"AgentSpawned={agentSpawned} " +
+                        $"Interpolator={(Interpolator != null)} " +
+                        $"gotState={gotState} " +
+                        (gotState ? $"grid=({dx},{dy}) " : "") +
+                        $"transform.pos={transform.position} " +
+                        $"PlayerIndex={playerIndex} " +
+                        $"KitchenAttached={kitchenAttached} " +
+                        $"ChefsCount={chefsCount}");
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning($"[ChefVisual] Diagnostic dump threw: {e.GetType().Name}: {e.Message}");
+                }
+            }
+
             if (!TryReadState(out int x, out int y, out byte facing, out byte held))
                 return;
 
