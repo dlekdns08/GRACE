@@ -1,11 +1,14 @@
 // RepairGameRoom.cs
 // Idempotent repair pass for an already-built 02_GameRoom scene.
-// Adds GameRoomBootstrap to the NetworkManager GO if missing, and registers
-// the NetworkChef prefab in NetworkManager's NetworkConfig.Prefabs list so
-// runtime Instantiate+Spawn calls succeed. Run via
-// Tools → GRACE → Repair 02_GameRoom.
+// - Registers the NetworkChef prefab in NetworkManager's NetworkConfig.Prefabs
+//   so runtime Instantiate+Spawn calls succeed.
+// - Recomputes GlobalObjectIdHash on every scene-placed NetworkObject so two
+//   programmatically-added NetworkObjects don't both end up with hash 0
+//   (NGO refuses to spawn duplicates).
+// Run via Tools → GRACE → Repair 02_GameRoom.
 
 using System.Collections.Generic;
+using System.Reflection;
 using Grace.Unity.Network;
 using Unity.Netcode;
 using UnityEditor;
