@@ -1,15 +1,19 @@
 // RepairGameRoom.cs
-// Idempotent repair pass for an already-built 02_GameRoom scene.
+// Idempotent repair pass for an already-built 02_GameRoom scene + chef prefab.
 // - Registers the NetworkChef prefab in NetworkManager's NetworkConfig.Prefabs
 //   so runtime Instantiate+Spawn calls succeed.
 // - Recomputes GlobalObjectIdHash on every scene-placed NetworkObject so two
 //   programmatically-added NetworkObjects don't both end up with hash 0
 //   (NGO refuses to spawn duplicates).
+// - Adds ChefVisual + MovementInterpolator to NetworkChef.prefab so spawned
+//   chefs visibly follow their replicated grid position. Without these, the
+//   chef stays at world (0,0,0) even though the simulation moves it.
 // Run via Tools → GRACE → Repair 02_GameRoom.
 
 using System.Collections.Generic;
 using System.Reflection;
 using Grace.Unity.Network;
+using Grace.Unity.Render;
 using Unity.Netcode;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -86,6 +90,14 @@ namespace Grace.Unity.EditorTools
                 }
             }
 
+            // 3. Make sure the NetworkChef prefab has visual components so
+            // spawned chefs actually move on screen.
+            if (chef != null && RepairChefPrefab(chef))
+            {
+                Debug.Log("[GRACE Repair] Patched NetworkChef prefab with ChefVisual + MovementInterpolator.");
+                changes++;
+            }
+
             if (changes > 0)
             {
                 EditorUtility.SetDirty(nm);
@@ -96,6 +108,59 @@ namespace Grace.Unity.EditorTools
             else
             {
                 Debug.Log("[GRACE Repair] No changes needed; scene already up to date.");
+            }
+        }
+
+        private static bool RepairChefPrefab(GameObject chefAsset)
+        {
+            string path = AssetDatabase.GetAssetPath(chefAsset);
+            if (string.IsNullOrEmpty(path)) return false;
+
+            var root = PrefabUtility.LoadPrefabContents(path);
+            try
+            {
+                bool changed = false;
+
+                var interp = root.GetComponent<MovementInterpolator>();
+                if (interp == null)
+                {
+                    interp = root.AddComponent<MovementInterpolator>();
+                    interp.tileSize = 1f;
+                    interp.lerpDuration = 0.15f;
+                    changed = true;
+                }
+
+                var visual = root.GetComponent<ChefVisual>();
+                if (visual == null)
+                {
+                    visual = root.AddComponent<ChefVisual>();
+                    changed = true;
+                }
+                if (visual.NetworkAgent == null)
+                {
+                    visual.NetworkAgent = root.GetComponent<Grace.Unity.Network.NetworkChefAgent>();
+                    if (visual.NetworkAgent != null) changed = true;
+                }
+                if (visual.Interpolator == null)
+                {
+                    visual.Interpolator = interp;
+                    changed = true;
+                }
+                if (visual.BodyTransform == null)
+                {
+                    visual.BodyTransform = root.transform;
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    PrefabUtility.SaveAsPrefabAsset(root, path);
+                }
+                return changed;
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
             }
         }
 
