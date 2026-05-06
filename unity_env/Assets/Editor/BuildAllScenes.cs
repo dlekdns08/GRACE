@@ -23,7 +23,9 @@ namespace Grace.Unity.EditorTools
             KitchenSceneBuilder.BuildGameRoomScene();
             HUDBuilder.AddHud();
             AudioMasterBuilder.AddAudioMaster();
-            EditorSceneManager.SaveOpenScenes();
+            var gameRoom = EditorSceneManager.GetActiveScene();
+            EditorSceneManager.MarkSceneDirty(gameRoom);
+            EditorSceneManager.SaveScene(gameRoom);
 
             RoundEndSceneBuilder.Build();
 
