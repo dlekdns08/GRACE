@@ -17,20 +17,24 @@ namespace Grace.Unity.Network
     {
         private void Start()
         {
+            Debug.Log("[GameRoomBootstrap] Start() running.");
             var nm = NetworkManager.Singleton;
             if (nm == null)
             {
-                Debug.LogWarning("[GameRoomBootstrap] NetworkManager.Singleton is null; cannot start host.");
+                Debug.LogError("[GameRoomBootstrap] NetworkManager.Singleton is null; cannot start host.");
                 return;
             }
             if (nm.IsListening)
             {
-                // Already hosting/joined (came from lobby).
+                Debug.Log("[GameRoomBootstrap] NetworkManager already listening; not starting a new host.");
                 return;
             }
-            if (!nm.StartHost())
+            Debug.Log("[GameRoomBootstrap] Calling StartHost()…");
+            bool ok = nm.StartHost();
+            Debug.Log($"[GameRoomBootstrap] StartHost returned {ok}. IsHost={nm.IsHost} IsServer={nm.IsServer} IsListening={nm.IsListening}");
+            if (!ok)
             {
-                Debug.LogError("[GameRoomBootstrap] StartHost failed.");
+                Debug.LogError("[GameRoomBootstrap] StartHost failed. Check transport / port / network prefab list.");
             }
         }
     }
