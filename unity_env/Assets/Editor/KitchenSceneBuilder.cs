@@ -150,12 +150,25 @@ namespace Grace.Unity.EditorTools
         private static void RegenerateSceneNetworkHashes()
         {
             var type = typeof(NetworkObject);
+            var hashField = type.GetField("GlobalObjectIdHash",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             var validate = type.GetMethod("OnValidate",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-            if (validate == null) return;
+            if (hashField == null) return;
+
             foreach (var no in Object.FindObjectsByType<NetworkObject>(FindObjectsSortMode.None))
             {
-                validate.Invoke(no, null);
+                if (validate != null)
+                {
+                    try { validate.Invoke(no, null); } catch { /* fall through */ }
+                }
+                if ((uint)hashField.GetValue(no) == 0u)
+                {
+                    string path = no.gameObject.scene.name + "/" + no.gameObject.name;
+                    uint fallback = unchecked((uint)path.GetHashCode());
+                    if (fallback == 0) fallback = 1;
+                    hashField.SetValue(no, fallback);
+                }
                 EditorUtility.SetDirty(no);
             }
         }
