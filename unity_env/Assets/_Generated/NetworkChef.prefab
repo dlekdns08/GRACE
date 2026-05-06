@@ -16,6 +16,8 @@ GameObject:
   - component: {fileID: 1513960461715149619}
   - component: {fileID: 8937567206997555012}
   - component: {fileID: 116590992725057768}
+  - component: {fileID: -7738414244336547555}
+  - component: {fileID: 5338158213317121726}
   m_Layer: 0
   m_Name: NetworkChef
   m_TagString: Untagged
@@ -130,7 +132,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1262963919
+  GlobalObjectIdHash: 4113104590
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -153,7 +155,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5ffd3501c5e8a44ef93f8eaf6424134f, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Grace.Unity.Network::Grace.Unity.Network.NetworkChefAgent
   ShowTopMostFoldoutHeaderGroup: 1
   PlayerIndex:
@@ -172,7 +174,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 15a84a59125d847c8a4737f2e46820ce, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Grace.Unity.Input::Grace.Unity.Input.PlayerInputController
   LocalPlayerIndex: 0
   NetworkAgent: {fileID: 0}
@@ -187,8 +189,41 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3e8b1a4c7d2f5e9a1c8b4d7e3f2a6c8d, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Grace.Unity.Input::Grace.Unity.Input.OnlineTickDriver
   ShowTopMostFoldoutHeaderGroup: 1
   TicksPerSecond: 8
   Input: {fileID: 0}
+--- !u!114 &-7738414244336547555
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5926152145309328702}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 44971e2223cdd48efb8163b37c468478, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Grace.Unity.Render::Grace.Unity.Render.MovementInterpolator
+  lerpDuration: 0.15
+  tileSize: 1
+--- !u!114 &5338158213317121726
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5926152145309328702}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 984879fac2697489fa801cfc6af64897, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Grace.Unity.Render::Grace.Unity.Render.ChefVisual
+  NetworkAgent: {fileID: 1513960461715149619}
+  Interpolator: {fileID: -7738414244336547555}
+  BodyTransform: {fileID: 2494460220468843513}
+  HeldOnion: {fileID: 0}
+  HeldDish: {fileID: 0}
+  HeldSoup: {fileID: 0}
+  BodyAnimator: {fileID: 0}
