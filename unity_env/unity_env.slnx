@@ -4,6 +4,6 @@
   <Project Path="Grace.Unity.Core.csproj" />
   <Project Path="Grace.Unity.Render.csproj" />
   <Project Path="Grace.Unity.Input.csproj" />
-  <Project Path="Grace.Unity.Audio.csproj" />
   <Project Path="Grace.Unity.EditorTools.csproj" />
+  <Project Path="Grace.Unity.Audio.csproj" />
 </Solution>
