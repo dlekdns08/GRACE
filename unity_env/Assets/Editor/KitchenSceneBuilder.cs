@@ -128,10 +128,39 @@ namespace Grace.Unity.EditorTools
 
             // Register the chef prefab as the auto-spawn player object.
             nm.NetworkConfig.PlayerPrefab = chef;
+
+            // Register a NetworkPrefabsList so manual Spawn calls on NetworkChef
+            // (NetworkPlayerSpawner.Instantiate + SpawnAsPlayerObject) succeed.
+            EnsurePrefabList(nm, chef);
+
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, scenePath);
 
             Debug.Log($"[GRACE KitchenSceneBuilder] Built scene at {scenePath}");
+        }
+
+        private static void EnsurePrefabList(NetworkManager nm, GameObject chef)
+        {
+            const string path = "Assets/Settings/GraceNetworkPrefabsList.asset";
+            if (!Directory.Exists("Assets/Settings"))
+                Directory.CreateDirectory("Assets/Settings");
+
+            var list = AssetDatabase.LoadAssetAtPath<NetworkPrefabsList>(path);
+            if (list == null)
+            {
+                list = ScriptableObject.CreateInstance<NetworkPrefabsList>();
+                AssetDatabase.CreateAsset(list, path);
+            }
+
+            bool already = false;
+            foreach (var p in list.PrefabList)
+                if (p != null && p.Prefab == chef) { already = true; break; }
+            if (!already) list.Add(new NetworkPrefab { Prefab = chef });
+            EditorUtility.SetDirty(list);
+            AssetDatabase.SaveAssets();
+
+            if (!nm.NetworkConfig.Prefabs.NetworkPrefabsLists.Contains(list))
+                nm.NetworkConfig.Prefabs.NetworkPrefabsLists.Add(list);
         }
 
         private static GameObject CreateTilePrefab(string name, PrimitiveType prim, Color tint, float height)
