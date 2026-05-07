@@ -163,18 +163,58 @@ namespace Grace.Unity.EditorTools
                 var body = MakePrimitive(PrimitiveType.Cylinder, $"PotBody{DecoTag}", go.transform,
                     new Vector3(0f, 0.65f, 0f), new Vector3(0.7f, 0.25f, 0.7f), PotColor);
                 StripCollider(body);
-                // Two handles
                 var handleL = MakePrimitive(PrimitiveType.Cube, $"HandleL{DecoTag}", body.transform,
                     new Vector3(-0.6f, 0f, 0f), new Vector3(0.2f, 0.15f, 0.4f), PotColor);
                 StripCollider(handleL);
                 var handleR = MakePrimitive(PrimitiveType.Cube, $"HandleR{DecoTag}", body.transform,
                     new Vector3(0.6f, 0f, 0f), new Vector3(0.2f, 0.15f, 0.4f), PotColor);
                 StripCollider(handleR);
-                // Steam puff (visible always; in real game PotVisual would toggle)
-                var steam = MakePrimitive(PrimitiveType.Sphere, $"Steam{DecoTag}", go.transform,
-                    new Vector3(0f, 1.2f, 0f), Vector3.one * 0.35f,
-                    new Color(1f, 1f, 1f, 0.6f));
-                StripCollider(steam);
+
+                // Three onion stacks, hidden by default and toggled by PotVisual.
+                var onion1 = MakePrimitive(PrimitiveType.Sphere, $"Onion1{DecoTag}", go.transform,
+                    new Vector3(-0.18f, 0.78f, 0f), Vector3.one * 0.28f, OnionSkin);
+                StripCollider(onion1); onion1.SetActive(false);
+                var onion2 = MakePrimitive(PrimitiveType.Sphere, $"Onion2{DecoTag}", go.transform,
+                    new Vector3(0.18f, 0.78f, 0f), Vector3.one * 0.28f, OnionSkin);
+                StripCollider(onion2); onion2.SetActive(false);
+                var onion3 = MakePrimitive(PrimitiveType.Sphere, $"Onion3{DecoTag}", go.transform,
+                    new Vector3(0f, 0.95f, 0f), Vector3.one * 0.30f, OnionSkin);
+                StripCollider(onion3); onion3.SetActive(false);
+
+                // Ready glow: bright yellow halo above the pot, hidden by default.
+                var glow = MakePrimitive(PrimitiveType.Sphere, $"ReadyGlow{DecoTag}", go.transform,
+                    new Vector3(0f, 1.3f, 0f), Vector3.one * 0.55f,
+                    new Color(1f, 0.95f, 0.4f, 0.85f));
+                StripCollider(glow); glow.SetActive(false);
+
+                // Steam particles (always available; PotVisual toggles Play/Stop).
+                var steamGO = new GameObject($"Steam{DecoTag}");
+                steamGO.transform.SetParent(go.transform, false);
+                steamGO.transform.localPosition = new Vector3(0f, 1.0f, 0f);
+                var ps = steamGO.AddComponent<ParticleSystem>();
+                var main = ps.main;
+                main.startLifetime = 1.5f;
+                main.startSpeed = 0.3f;
+                main.startSize = 0.25f;
+                main.startColor = new Color(1f, 1f, 1f, 0.5f);
+                main.maxParticles = 30;
+                var emission = ps.emission;
+                emission.rateOverTime = 8f;
+                var shape = ps.shape;
+                shape.shapeType = ParticleSystemShapeType.Cone;
+                shape.angle = 12f;
+                shape.radius = 0.1f;
+
+                // Add or update PotVisual component and wire its slots.
+                var pv = go.GetComponent<PotVisual>();
+                if (pv == null) pv = go.AddComponent<PotVisual>();
+                pv.Onion1 = onion1;
+                pv.Onion2 = onion2;
+                pv.Onion3 = onion3;
+                pv.ReadyGlow = glow;
+                pv.SteamParticles = ps;
+                EditorUtility.SetDirty(pv);
+
                 PrefabUtility.SaveAsPrefabAsset(go, path);
             }
             finally { PrefabUtility.UnloadPrefabContents(go); }

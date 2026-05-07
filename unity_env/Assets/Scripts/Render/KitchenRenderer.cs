@@ -6,6 +6,7 @@
 // when Build() is called; both online (host loads layout) and offline use it.
 
 using Grace.Unity.Core;
+using Grace.Unity.Network;
 using UnityEngine;
 
 namespace Grace.Unity.Render
@@ -35,6 +36,8 @@ namespace Grace.Unity.Render
             CurrentLayout = LayoutLoader.Load(layoutName);
             ClearChildren();
 
+            var kitchen = FindFirstObjectByType<NetworkKitchen>();
+
             for (int x = 0; x < CurrentLayout.Width; x++)
             {
                 for (int y = 0; y < CurrentLayout.Height; y++)
@@ -45,6 +48,19 @@ namespace Grace.Unity.Render
                     var pos = new Vector3(x * TileSize, 0f, -y * TileSize);
                     var go = Instantiate(prefab, pos, Quaternion.identity, transform);
                     go.name = $"{tile}_{x}_{y}";
+
+                    // Auto-wire PotVisual on spawned pots so onion stack / steam /
+                    // ready glow update from kitchen state without manual setup.
+                    if (tile == TileKind.Pot)
+                    {
+                        var pv = go.GetComponent<PotVisual>();
+                        if (pv != null)
+                        {
+                            pv.X = x;
+                            pv.Y = y;
+                            pv.Kitchen = kitchen;
+                        }
+                    }
                 }
             }
         }
